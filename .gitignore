@@ -42,3 +42,6 @@ logs/
 # 上传与演示临时文件
 uploads/
 tmp/
+
+# ??????
+scripts-dev/*.png
