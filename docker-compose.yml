@@ -1,0 +1,98 @@
+# ai-doc-lint 本地/自托管编排（W1：db / cache / storage / api / nginx）
+# worker（Celery）在 W2 加入；monitoring / security profile 在 W7-W8 加入。
+name: ai-doc-lint
+
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aidoc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aidoc_local_pwd}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_doc_lint}
+      # PostgreSQL 18 镜像要求挂载点在 /var/lib/postgresql，数据放版本子目录
+      PGDATA: /var/lib/postgresql/pg18
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aidoc} -d ${POSTGRES_DB:-ai_doc_lint}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - aidocnet
+
+  cache:
+    image: valkey/valkey:9.0
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes:
+      - valkeydata:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - aidocnet
+
+  storage:
+    # Docker Hub 的 minio/minio 在部分网络下会被 registry 拒绝，默认走 Quay 官方镜像
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:latest}
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-aidoc_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-aidoc_minio_local_pwd}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - aidocnet
+
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    networks:
+      - aidocnet
+
+  nginx:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - aidocnet
+
+volumes:
+  pgdata:
+  valkeydata:
+  miniodata:
+
+networks:
+  aidocnet:
+    driver: bridge
