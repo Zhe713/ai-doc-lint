@@ -34,7 +34,7 @@ def append_event(
         task_id=task.id,
         event_type=event_type,
         stage=stage,
-        message=message,
+        message=(message or "")[:255],
         payload=payload,
     )
     db.add(row)

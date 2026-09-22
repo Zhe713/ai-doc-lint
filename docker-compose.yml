@@ -80,6 +80,7 @@ services:
     # Celery 解析 worker：复用 api 镜像，改启动命令为 celery worker（不走 entrypoint.sh）
     build:
       context: ./backend
+    image: ai-doc-lint-api:latest
     restart: unless-stopped
     env_file:
       - .env
@@ -116,6 +117,7 @@ services:
     # 周期任务：卡死巡检/对账（W7 起挂学习闭环）
     build:
       context: ./backend
+    image: ai-doc-lint-api:latest
     restart: unless-stopped
     env_file:
       - .env
