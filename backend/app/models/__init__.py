@@ -1,6 +1,14 @@
 """导入全部模型，供 Alembic 与 create_all 收集 metadata。"""
 
 from app.db.session import Base
+from app.models.document import (
+    Artifact,
+    Document,
+    DocumentTask,
+    IntentRoute,
+    TaskEvent,
+    TaskGroup,
+)
 from app.models.user import (
     AuthSession,
     LoginAttempt,
@@ -18,4 +26,10 @@ __all__ = [
     "AuthSession",
     "LoginAttempt",
     "SystemSetting",
+    "Document",
+    "TaskGroup",
+    "DocumentTask",
+    "TaskEvent",
+    "Artifact",
+    "IntentRoute",
 ]

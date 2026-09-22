@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     minio_bucket: str = Field(default="documents", alias="MINIO_BUCKET")
     minio_secure: bool = Field(default=False, alias="MINIO_SECURE")
 
+    # Celery / W2 解析流水线
+    celery_broker_db: int = Field(default=2, alias="CELERY_BROKER_DB")
+    parse_concurrency: int = Field(default=2, alias="PARSE_CONCURRENCY")
+    parse_max_tasks_per_child: int = Field(default=1, alias="PARSE_MAX_TASKS_PER_CHILD")
+    ocr_concurrency: int = Field(default=1, alias="OCR_CONCURRENCY")
+    stalled_timeout_seconds: int = Field(default=300, alias="STALLED_TIMEOUT_SECONDS")
+    max_upload_mb: int = Field(default=200, alias="MAX_UPLOAD_MB")
+
     @property
     def database_url(self) -> str:
         return (
@@ -58,6 +66,11 @@ class Settings(BaseSettings):
     def valkey_url(self) -> str:
         auth = f":{self.valkey_password}@" if self.valkey_password else ""
         return f"redis://{auth}{self.valkey_host}:{self.valkey_port}/{self.valkey_db}"
+
+    @property
+    def celery_broker_url(self) -> str:
+        auth = f":{self.valkey_password}@" if self.valkey_password else ""
+        return f"redis://{auth}{self.valkey_host}:{self.valkey_port}/{self.celery_broker_db}"
 
 
 @lru_cache

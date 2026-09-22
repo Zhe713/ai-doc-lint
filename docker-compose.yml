@@ -76,6 +76,66 @@ services:
     networks:
       - aidocnet
 
+  worker:
+    # Celery 解析 worker：复用 api 镜像，改启动命令为 celery worker（不走 entrypoint.sh）
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    entrypoint: ["celery"]
+    command:
+      - "-A"
+      - "app.tasks.celery_app:celery_app"
+      - "worker"
+      - "-Q"
+      - "parse,review,annotate,learn"
+      - "--concurrency"
+      - "${PARSE_CONCURRENCY:-2}"
+      - "--pool"
+      - "prefork"
+      - "-n"
+      - "parse@%h"
+      - "--loglevel"
+      - "INFO"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    volumes:
+      - modelcache:/root/.cache
+    networks:
+      - aidocnet
+
+  beat:
+    # 周期任务：卡死巡检/对账（W7 起挂学习闭环）
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    entrypoint: ["celery"]
+    command:
+      - "-A"
+      - "app.tasks.celery_app:celery_app"
+      - "beat"
+      - "--loglevel"
+      - "INFO"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - aidocnet
+
   nginx:
     build:
       context: ./frontend
@@ -92,6 +152,7 @@ volumes:
   pgdata:
   valkeydata:
   miniodata:
+  modelcache:
 
 networks:
   aidocnet:
