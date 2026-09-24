@@ -7,8 +7,8 @@
         <el-menu-item index="/">
           <el-icon><HomeFilled /></el-icon><span>工作台</span>
         </el-menu-item>
-        <el-menu-item index="/documents" disabled>
-          <el-icon><Document /></el-icon><span>文档校验（W2 上线）</span>
+        <el-menu-item index="/documents">
+          <el-icon><Document /></el-icon><span>文档校验</span>
         </el-menu-item>
         <el-menu-item index="/rules" disabled>
           <el-icon><SetUp /></el-icon><span>规则与模板（W3/W6）</span>

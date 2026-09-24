@@ -96,6 +96,49 @@ def _ocr_pdf(data: bytes) -> tuple[str, int]:
     return "\n\n".join(pages_text), len(pages_text)
 
 
+def _pdfium_probe(data: bytes) -> tuple[str, int]:
+    """零模型、零网络的 PDF 内嵌文本探测：pypdfium2 直接取文本层。"""
+    import io
+
+    import pypdfium2 as pdfium
+
+    pdf = pdfium.PdfDocument(io.BytesIO(data))
+    pages: list[str] = []
+    for page in pdf:
+        tp = page.get_textpage()
+        try:
+            pages.append(tp.get_text_range() or "")
+        finally:
+            tp.close()
+    return "\n\n".join(pages), len(pages)
+
+
+def _low_density(text: str, page_count: int) -> bool:
+    chars_per_page = len(text or "") / max(page_count, 1)
+    return chars_per_page < MIN_CHARS_PER_PAGE or len(text or "") < MIN_TOTAL_CHARS
+
+
+def _run_ocr(db: Session, task, data, ext):
+    """用户确认后的 OCR 执行；返回 (plaintext, page_count) 或 None（已写终态）。"""
+    import redis
+
+    _publish_progress(db, task, "ocr", "OCR 识别中（RapidOCR）")
+    r = redis.Redis.from_url(settings.valkey_url)
+    slot = _wait_ocr_slot(r)
+    if slot is None:
+        _fail(db, task, "ocr_timeout", "等待 OCR 资源超时")
+        return None
+    try:
+        if ext == "pdf":
+            plaintext, page_count = _ocr_pdf(data)
+        else:
+            _fail(db, task, "ocr_unsupported", "docx 扫描件请另存为 PDF 后重试 OCR")
+            return None
+    finally:
+        r.delete(slot)
+    return plaintext, page_count
+
+
 def run_parse_pipeline(db: Session, task: DocumentTask, document) -> None:
     from app.db.session import SessionLocal  # noqa: F401  保留以便扩展
 
@@ -111,59 +154,91 @@ def run_parse_pipeline(db: Session, task: DocumentTask, document) -> None:
     page_count = 0
     table_count = 0
     used_ocr = False
+    fallback_warnings: list[dict] = []
 
     try:
         if ext in ("txt", "md"):
             _publish_progress(db, task, "extract", "纯文本直接解码")
             plaintext = data.decode("utf-8", errors="replace")
             page_count = 1
-        elif ext in ("docx", "pdf"):
-            _publish_progress(db, task, "extract", f"docling 抽取（{ext}）")
+        elif ext == "pdf":
+            # 第一层：pdfium 零成本探测文本层，扫描件不再惊动 docling/模型下载
+            _publish_progress(db, task, "probe", "PDF 文本层探测")
+            try:
+                probe_text, page_count = _pdfium_probe(data)
+            except Exception as exc:  # noqa: BLE001
+                _gate(
+                    db, task, GATE_PARSE_FAILED,
+                    f"PDF 探测失败: {type(exc).__name__}: {exc}", {"ext": ext},
+                )
+                return
+
+            if _low_density(probe_text, page_count):
+                if task.attempts == 0:
+                    chars_per_page = len(probe_text) / max(page_count, 1)
+                    _gate(
+                        db, task, GATE_OCR_REQUIRED,
+                        "文档疑似扫描件/图片型 PDF，文本层内容过少",
+                        {"chars": len(probe_text), "pages": page_count,
+                         "chars_per_page": round(chars_per_page, 1)},
+                    )
+                    return
+                ocr_out = _run_ocr(db, task, data, ext)
+                if ocr_out is None:
+                    return
+                plaintext, page_count = ocr_out
+                used_ocr = True
+            else:
+                # 文本健康：docling 提供结构化（表格/标题），失败则回退 pdfium 文本，离线可用
+                _publish_progress(db, task, "extract", "docling 结构化抽取")
+                import tempfile
+
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+                try:
+                    tmp.write(data)
+                    tmp.close()
+                    from docling.document_converter import DocumentConverter
+
+                    converter = DocumentConverter()
+                    result = converter.convert(tmp.name)
+                    plaintext = result.document.export_to_text()
+                    page_count = len(result.pages) if getattr(result, "pages", None) else (len(result.document.pages) or page_count)
+                    table_count = len(result.document.tables or [])
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("docling unavailable, fallback to pdfium: %s", exc)
+                    plaintext = probe_text
+                    fallback_warnings.append({
+                        "code": "docling_unavailable_fallback_pdfium",
+                        "reason": f"{type(exc).__name__}: {str(exc)[:200]}",
+                    })
+                finally:
+                    os.unlink(tmp.name)
+        elif ext == "docx":
+            _publish_progress(db, task, "extract", "docling 抽取（docx）")
             from docling.document_converter import DocumentConverter
 
-            suffix = f".{ext}"
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
             try:
                 tmp.write(data)
                 tmp.close()
                 converter = DocumentConverter()
                 result = converter.convert(tmp.name)
                 plaintext = result.document.export_to_text()
-                page_count = len(result.pages) if getattr(result, "pages", None) else (len(result.document.pages) or 1)
+                page_count = 1
                 table_count = len(result.document.tables or [])
             finally:
                 os.unlink(tmp.name)
 
-            chars_per_page = len(plaintext) / max(page_count, 1)
-            # 多页文档平均每页文本过少 = 疑似扫描件；单页短文本（真实短合同）不误判
-            need_ocr_gate = page_count >= 2 and chars_per_page < MIN_CHARS_PER_PAGE
-            if need_ocr_gate and task.attempts == 0:
+            if _low_density(plaintext, page_count) and task.attempts == 0:
                 _gate(
                     db, task, GATE_OCR_REQUIRED,
-                    "文档疑似扫描件/图片型 PDF，文本抽取量过低",
-                    {"chars": len(plaintext), "pages": page_count, "chars_per_page": round(chars_per_page, 1)},
+                    "docx 文本抽取量过低，可能含图片扫描内容",
+                    {"chars": len(plaintext)},
                 )
                 return
-
-            if need_ocr_gate:
-                # 用户已选择 OCR 重试
-                import redis
-
-                _publish_progress(db, task, "ocr", "OCR 识别中（RapidOCR）")
-                r = redis.Redis.from_url(settings.valkey_url)
-                slot = _wait_ocr_slot(r)
-                if slot is None:
-                    _fail(db, task, "ocr_timeout", "等待 OCR 资源超时")
-                    return
-                try:
-                    if ext == "pdf":
-                        plaintext, page_count = _ocr_pdf(data)
-                    else:
-                        _fail(db, task, "ocr_unsupported", "docx 扫描件请另存为 PDF 后重试 OCR")
-                        return
-                    used_ocr = True
-                finally:
-                    r.delete(slot)
+            if _low_density(plaintext, page_count):
+                _fail(db, task, "ocr_unsupported", "docx 扫描件请另存为 PDF 后重试 OCR")
+                return
         else:
             _gate(
                 db, task, GATE_UNSUPPORTED,
@@ -207,12 +282,15 @@ def run_parse_pipeline(db: Session, task: DocumentTask, document) -> None:
         "ocr_used": used_ocr,
         "chars_per_page": round(char_count / max(page_count, 1), 1),
     }
+    final_fields = {
+        "stats": stats,
+        "result_refs": {"plaintext": plaintext_key, "normalized": normalized_key},
+    }
+    if fallback_warnings:
+        final_fields["warnings"] = list(task.warnings or []) + fallback_warnings
     task_state.change_status(
         db, task, STATUS_PARSED,
         event_type="task_succeeded", stage="done",
         message="解析完成",
-        fields={
-            "stats": stats,
-            "result_refs": {"plaintext": plaintext_key, "normalized": normalized_key},
-        },
+        fields=final_fields,
     )

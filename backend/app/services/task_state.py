@@ -105,6 +105,16 @@ def change_status(
     # 文档主档状态跟随最新任务状态
     db.execute(update(Document).where(Document.id == task.document_id).values(status=to_status))
 
+    # 整组全部进入终态时记录批次完成时间
+    if task.group_id is not None:
+        group = db.get(TaskGroup, task.group_id)
+        if group is not None and group.finished_at is None:
+            settled = group.succeeded + group.failed + group.cancelled
+            if settled >= group.total and group.pending == 0 and group.running == 0 and group.awaiting == 0:
+                db.execute(
+                    update(TaskGroup).where(TaskGroup.id == group.id).values(finished_at=now)
+                )
+
     # 同步到内存对象，便于事件 payload 读取
     for k, v in values.items():
         setattr(task, k, v)

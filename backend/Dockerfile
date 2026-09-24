@@ -1,22 +1,39 @@
 FROM python:3.12-slim
 
+# 默认走清华镜像（境内构建稳定）；官方源构建可加 --build-arg PIP_INDEX_URL=https://pypi.org/simple
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
+    PIP_INDEX_URL=${PIP_INDEX_URL} \
+    PYTHONPATH=/app \
     TZ=Asia/Shanghai
 
 WORKDIR /app
 
-# 先复制依赖描述以利用构建缓存
+# 系统库：onnxruntime 需要 libxcb/libgomp，opencv 需要 libGL/libglib（slim 镜像默认缺失）
+RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g; s|security.debian.org|mirrors.tuna.tsinghua.edu.cn/debian-security|g' \
+        /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list 2>/dev/null || true; \
+    apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgomp1 libglib2.0-0 libxcb1 libgl1 libxext6 libx11-6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 依赖层：只复制 pyproject + 空包占位，使依赖安装结果可被构建缓存复用（改业务代码不重装依赖）
 COPY pyproject.toml ./
+RUN mkdir -p app \
+    && printf '' > app/__init__.py \
+    && pip install --no-cache-dir ".[dev]" \
+    && rm -rf app
+
+# 业务代码与迁移
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./
 COPY entrypoint.sh ./entrypoint.sh
 COPY tests ./tests
 
-RUN pip install --no-cache-dir ".[dev]" \
-    && sed -i 's/\r$//' ./entrypoint.sh \
+RUN sed -i 's/\r$//' ./entrypoint.sh \
     && chmod +x ./entrypoint.sh \
     && useradd -m -u 10001 appuser \
     && chown -R appuser:appuser /app

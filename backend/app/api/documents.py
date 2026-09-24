@@ -13,7 +13,9 @@ from app.db.session import get_db
 from app.models.document import (
     GATE_CONTINUE_WARNINGS,
     GATE_CANCEL,
+    GATE_OCR_REQUIRED,
     GATE_RETRY_OCR,
+    GATE_UNSUPPORTED,
     STATUS_AWAITING,
     STATUS_CANCELLED,
     STATUS_PARSED,
@@ -197,6 +199,26 @@ def task_detail(task_id: uuid.UUID, db: Session = Depends(get_db), current: User
     )
 
 
+@router.get("/tasks/{task_id}/preview")
+def task_preview(task_id: uuid.UUID, db: Session = Depends(get_db), current: User = Depends(get_current_user)):
+    task = _get_owned_task(db, current, task_id)
+    refs = task.result_refs or {}
+    key = refs.get("plaintext")
+    if not key:
+        raise HTTPException(status_code=409, detail="任务尚未解析出文本")
+    text = storage.get_object_bytes(key).decode("utf-8", errors="replace")
+    limit = 20000
+    truncated = len(text) > limit
+    doc = db.get(Document, task.document_id)
+    return {
+        "filename": doc.filename if doc else "-",
+        "plaintext": text[:limit],
+        "truncated": truncated,
+        "total_chars": len(text),
+        "stats": task.stats,
+    }
+
+
 @router.post("/tasks/{task_id}/cancel", status_code=200)
 def cancel_task(task_id: uuid.UUID, db: Session = Depends(get_db), current: User = Depends(get_current_user)):
     task = _get_owned_task(db, current, task_id)
@@ -232,6 +254,12 @@ def decide_gate(
             db, task, STATUS_CANCELLED, event_type="gate_decision", stage="cancel", message="用户选择取消重传"
         )
     elif body.action == GATE_CONTINUE_WARNINGS:
+        # “带警告继续”仅对解析失败/低置信度开放；缺 OCR、格式不支持必须先处理
+        if task.gate_reason in (GATE_OCR_REQUIRED, GATE_UNSUPPORTED):
+            raise HTTPException(
+                status_code=409,
+                detail=f"当前闸门原因 {task.gate_reason} 不允许带警告继续，请选择 OCR 重试或取消",
+            )
         warnings = list(task.warnings or [])
         warnings.append({"code": "user_continued_with_warning", "reason": task.gate_reason})
         task_state.change_status(

@@ -7,9 +7,15 @@
 
 ## 当前进度
 
-- **W1（本版本）**：一键启动的工程骨架 —— PostgreSQL 18 + pgvector、Valkey 9、MinIO、FastAPI、Vue3 前端；
+- **W1**：一键启动的工程骨架 —— PostgreSQL 18 + pgvector、Valkey 9、MinIO、FastAPI、Vue3 前端；
   首次启动初始化管理员、注册开关、用户名密码登录（JWT 双令牌）、两级 RBAC、登录失败限流、健康检查。
-- W2 起：文档解析（docling/PaddleOCR）、Celery 异步队列、解析失败人工闸门、规则引擎与校验报告。
+- **W2（本版本）**：Celery 异步任务体系（parse/review/annotate/learn 四队列 + Beat 定时巡检）；
+  批量上传受理（单批最多 100 份、在途配额、sha256 去重、.doc 老格式明确拒绝）；
+  解析流水线（txt/md 直解、pdfium 零成本文本探测、docling 结构化抽取、扫描件 RapidOCR 兜底，
+  docling 不可用时自动回退 pdfium，离线可用）；
+  人工闸门三选一（OCR 重试 / 带警告继续 / 取消）；WebSocket + 轮询双通道实时进度；
+  卡死任务巡检与断电/重启自动对账恢复。
+- W3 起：格式规则、错别字检查、意图漏斗 L1/L2 流水线路由、校验报告。
 
 ## 快速开始（Docker Desktop / Linux 均可）
 
@@ -32,7 +38,7 @@ docker compose up -d --build
 | 服务 | 地址 | 说明 |
 | --- | --- | --- |
 | 前端（Nginx） | http://localhost:8080 | 唯一入口，反向代理 `/api` |
-| MinIO Console | http://localhost:9001 | 本地对象存储控制台（调试用） |
+| API 文档 | http://localhost:8080/docs | FastAPI 自动生成的接口文档 |
 | API 健康检查 | http://localhost:8080/health | 依赖项连通性 |
 
 ## 常用命令
@@ -51,8 +57,9 @@ docker compose down -v            # 停止并删除全部数据（谨慎）
 ai-doc-lint/
 ├── docker-compose.yml      # 一键编排
 ├── .env.example            # 全部环境变量（密钥只走这里）
-├── backend/                # FastAPI + SQLAlchemy2 + Alembic + Celery(W2)
-└── frontend/               # Vue3 + TS + Vite + Element Plus（Nginx 托管）
+├── backend/                # FastAPI + SQLAlchemy2 + Alembic + Celery
+├── frontend/               # Vue3 + TS + Vite + Element Plus（Nginx 托管）
+└── scripts-dev/            # 本地开发/浸泡/恢复验证脚本（非分发内容）
 ```
 
 ## 安全与免责
