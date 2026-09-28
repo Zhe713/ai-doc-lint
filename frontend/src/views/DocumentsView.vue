@@ -21,6 +21,20 @@
             <el-tag v-for="f in picked" :key="f.uid" closable style="margin: 2px"
               @close="removePicked(f.uid)">{{ f.name }}</el-tag>
           </div>
+          <el-divider content-position="left" style="margin: 12px 0 6px">校验选项</el-divider>
+          <el-radio-group v-model="optDocType" size="small">
+            <el-radio-button label="auto">自动识别</el-radio-button>
+            <el-radio-button label="contract">合同</el-radio-button>
+            <el-radio-button label="tender">招投标</el-radio-button>
+            <el-radio-button label="policy">制度</el-radio-button>
+            <el-radio-button label="report">报告</el-radio-button>
+          </el-radio-group>
+          <div style="margin-top: 8px">
+            <el-checkbox-group v-model="optChecks" size="small">
+              <el-checkbox label="format">格式校验</el-checkbox>
+              <el-checkbox label="typo">错别字</el-checkbox>
+            </el-checkbox-group>
+          </div>
           <el-button type="primary" style="margin-top: 10px; width: 100%" :loading="uploading"
             :disabled="!picked.length" @click="doUpload">
             开始解析（{{ picked.length }} 份）
@@ -95,6 +109,8 @@
               <template #default="{ row }">
                 <el-button v-if="row.status === 'awaiting_decision'" size="small" type="danger"
                   @click="openGate(row)">去决策</el-button>
+                <el-button v-if="row.status === 'parsed'" size="small" type="primary"
+                  @click="openReport(row)">查看报告</el-button>
                 <el-button v-if="row.status === 'parsed'" size="small" @click="openPreview(row)">预览文本</el-button>
                 <el-button v-if="['pending', 'running'].includes(row.status)" size="small"
                   @click="onCancel(row)">取消</el-button>
@@ -139,6 +155,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type UploadFile, type UploadFiles } from 'element-plus'
 import { CircleCheck, Loading, UploadFilled } from '@element-plus/icons-vue'
 
@@ -157,6 +174,8 @@ import { useTaskProgress } from '@/composables/useTaskProgress'
 const uploadRef = ref()
 const picked = ref<UploadFiles>([])
 const uploading = ref(false)
+const optDocType = ref('auto')
+const optChecks = ref<string[]>(['format', 'typo'])
 const groups = ref<TaskGroup[]>([])
 const currentGroupId = ref('')
 const tasks = ref<TaskItem[]>([])
@@ -175,6 +194,12 @@ const { connected: wsConnected } = useTaskProgress(() => {
   if (currentGroupId.value) refreshGroup(currentGroupId.value)
 })
 
+const router = useRouter()
+
+function openReport(row: TaskItem) {
+  router.push({ name: 'reports', params: { docId: row.document_id } })
+}
+
 function onPick(_file: UploadFile, files: UploadFiles) {
   picked.value = files
 }
@@ -191,7 +216,10 @@ async function doUpload() {
   uploading.value = true
   try {
     const files = picked.value.map((f) => f.raw as File)
-    const res = await uploadDocuments(files)
+    const res = await uploadDocuments(files, {
+      doc_type: optDocType.value,
+      checks: optChecks.value
+    })
     ElMessage.success(`已受理 ${res.total} 份，开始排队解析`)
     picked.value = []
     uploadRef.value?.clearFiles()

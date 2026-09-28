@@ -56,9 +56,19 @@ export interface GroupDetail {
   tasks: TaskItem[]
 }
 
-export async function uploadDocuments(files: File[]): Promise<UploadResult> {
+export interface UploadOptions {
+  doc_type?: string
+  checks?: string[]
+}
+
+export async function uploadDocuments(
+  files: File[],
+  options: UploadOptions = {}
+): Promise<UploadResult> {
   const form = new FormData()
   files.forEach((f) => form.append('files', f))
+  form.append('doc_type', options.doc_type ?? 'auto')
+  form.append('checks', (options.checks ?? []).join(','))
   const { data } = await client.post('/documents/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 300000

@@ -14,6 +14,7 @@ const router = createRouter({
       children: [
         { path: '', name: 'home', component: () => import('@/views/HomeView.vue') },
         { path: 'documents', name: 'documents', component: () => import('@/views/DocumentsView.vue') },
+        { path: 'reports/:docId', name: 'reports', component: () => import('@/views/ReportsView.vue') },
         { path: 'admin/users', name: 'admin-users', component: () => import('@/views/admin/UsersView.vue'), meta: { admin: true } },
         { path: 'admin/settings', name: 'admin-settings', component: () => import('@/views/admin/SettingsView.vue'), meta: { admin: true } }
       ]
