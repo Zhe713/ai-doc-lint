@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     stalled_timeout_seconds: int = Field(default=300, alias="STALLED_TIMEOUT_SECONDS")
     max_upload_mb: int = Field(default=200, alias="MAX_UPLOAD_MB")
 
+    # W3 意图漏斗：用户未勾选检查项时的默认集合
+    default_checks: list[str] = Field(
+        default_factory=lambda: ["format", "typo"], alias="DEFAULT_CHECKS"
+    )
+
     @property
     def database_url(self) -> str:
         return (

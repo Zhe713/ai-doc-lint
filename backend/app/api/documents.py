@@ -3,11 +3,12 @@
 import hashlib
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
+from app.core.config import settings
 from app.db import storage
 from app.db.session import get_db
 from app.models.document import (
@@ -36,6 +37,7 @@ from app.schemas.task import (
     UploadedTaskOut,
 )
 from app.services import task_state
+from app.router.pipeline_router import route_pipeline
 from app.tasks.celery_app import QUEUE_PARSE
 from app.tasks.events import append_event
 from app.tasks.reaper import enqueue_parse
@@ -70,6 +72,8 @@ def _get_owned_task(db: Session, user: User, task_id: uuid.UUID) -> DocumentTask
 @router.post("/documents/upload", response_model=UploadOut, status_code=201)
 async def upload_documents(
     files: list[UploadFile] = File(...),
+    doc_type: str = Form("auto"),
+    checks: str = Form(""),
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> UploadOut:
@@ -105,6 +109,13 @@ async def upload_documents(
         key = f"docs/{current.id}/{uuid.uuid4().hex}/{f.filename}"
         storage.put_object(key, data, content_type=f.content_type)
 
+        route = route_pipeline(
+            db, user=current, session_id=str(group.id),
+            filename=f.filename or "",
+            options={"doc_type": doc_type, "checks": checks},
+            default_checks=settings.default_checks,
+        )
+
         doc = Document(
             user_id=current.id,
             filename=f.filename or "unnamed",
@@ -113,11 +124,20 @@ async def upload_documents(
             size_bytes=len(data),
             content_type=f.content_type,
             ext=ext,
+            doc_type=route.slots["doc_type"],
         )
         db.add(doc)
         db.flush()
 
-        task = DocumentTask(document_id=doc.id, user_id=current.id, group_id=group.id, task_type="parse")
+        task = DocumentTask(
+            document_id=doc.id, user_id=current.id, group_id=group.id, task_type="parse",
+            stats={
+                "checks": route.slots["checks"],
+                "doc_type": route.slots["doc_type"],
+                "route_layer": route.layer,
+                "route_path": route.path,
+            },
+        )
         db.add(task)
         group.pending += 1
         db.flush()

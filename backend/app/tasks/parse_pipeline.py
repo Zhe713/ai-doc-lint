@@ -274,7 +274,9 @@ def run_parse_pipeline(db: Session, task: DocumentTask, document) -> None:
     db.add(Artifact(document_id=task.document_id, task_id=task.id, kind=ART_PLAINTEXT, storage_key=plaintext_key))
     db.add(Artifact(document_id=task.document_id, task_id=task.id, kind=ART_NORMALIZED_JSON, storage_key=normalized_key))
 
+    # 合并保留受理阶段写入的路由信息（checks/doc_type/route_*），不能整体覆盖
     stats = {
+        **(task.stats or {}),
         "page_count": page_count,
         "char_count": char_count,
         "table_count": table_count,
@@ -294,7 +296,12 @@ def run_parse_pipeline(db: Session, task: DocumentTask, document) -> None:
         fields=final_fields,
     )
 
-    # parse 成功后自动创建 review 任务（Day14 起具体检查项由意图路由决定）
+    # parse 成功后自动创建 review 任务；检查项/文档类型来自上传时的意图路由
     from app.services.review_service import create_review_task
 
-    create_review_task(db, document)
+    route_opts = task.stats or {}
+    create_review_task(
+        db, document,
+        checks=route_opts.get("checks"),
+        doc_type_hint=route_opts.get("doc_type"),
+    )
