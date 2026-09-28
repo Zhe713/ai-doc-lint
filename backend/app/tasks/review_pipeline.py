@@ -30,6 +30,12 @@ class FindingCollector:
         self.task = task
         self.items: list[CheckFinding] = []
         self.skipped: list[str] = []
+        self.warnings: list[str] = []
+
+    def add_warning(self, message: str) -> None:
+        """检查器自身的运行告警（降级/能力受限等），区别于文档问题 finding。"""
+        if message not in self.warnings:
+            self.warnings.append(message)
 
     def note_skipped(self, rule: str) -> None:
         """检查器对当前格式无法可靠执行的规则显式记 skip（不产生误报）。"""
@@ -65,7 +71,11 @@ class FindingCollector:
         self.db.flush()
 
 
-def summarize(findings: list[CheckFinding], skipped: list[str] | None = None) -> dict:
+def summarize(
+    findings: list[CheckFinding],
+    skipped: list[str] | None = None,
+    warnings: list[str] | None = None,
+) -> dict:
     by_severity = {"error": 0, "warning": 0, "info": 0}
     by_checker: dict[str, int] = {}
     for f in findings:
@@ -78,6 +88,8 @@ def summarize(findings: list[CheckFinding], skipped: list[str] | None = None) ->
     }
     if skipped:
         out["skipped"] = list(skipped)
+    if warnings:
+        out["checker_warnings"] = list(warnings)
     return out
 
 
@@ -97,13 +109,17 @@ def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> 
 
         FormatChecker(db, document, collector, options).run()
     if "typo" in requested:
-        # Day13 接入
-        pass
+        from app.checkers.typo_checker import TypoChecker
+
+        TypoChecker(db, document, collector, options).run()
 
     collector.flush()
     db.commit()
 
-    stats = {**summarize(collector.items, collector.skipped), "checks": requested}
+    stats = {
+        **summarize(collector.items, collector.skipped, collector.warnings),
+        "checks": requested,
+    }
     task_state.change_status(
         db, task, STATUS_PARSED,
         event_type="task_succeeded", stage="done",
