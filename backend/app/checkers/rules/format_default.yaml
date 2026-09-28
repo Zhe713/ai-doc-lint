@@ -1,0 +1,38 @@
+# 内置默认格式规则包（W3）
+# 规则区间按中文合同/商务文档常见排版给出，采用区间而非单值以降低误报；
+# 用户自定义规则包在 W6 接入（覆盖本文件）。
+version: 1
+name: format_default
+
+page:
+  # 纸张：A4 210×297mm，容差 3mm
+  size:
+    expected_mm: [210, 297]
+    tolerance_mm: 3
+    severity: warning
+  # 页边距区间（cm）
+  margin_cm:
+    top: [2.0, 4.0]
+    bottom: [2.0, 4.0]
+    left: [2.0, 3.5]
+    right: [2.0, 3.5]
+    severity: warning
+
+font:
+  # 正文东亚字体白名单（西文单独允许 Times New Roman）
+  body_allow: ["宋体", "仿宋", "仿宋_GB2312", "黑体", "楷体", "Times New Roman"]
+  # 正文字号区间（pt）：五号 10.5 ~ 三号 16
+  body_size_pt: [10.5, 16]
+  severity: warning
+
+paragraph:
+  # 正文段落首行缩进目标字符数；正文长段落未缩进比例超过阈值则提示
+  first_line_indent_chars: 2
+  unindented_ratio: 0.3
+  min_chars: 15
+  severity: info
+
+heading:
+  # 中文标题层级：一、 / （一） / 1. / （1）；检测跳级
+  enabled: true
+  severity: info

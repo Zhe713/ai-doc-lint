@@ -191,7 +191,6 @@ def run_parse_pipeline(db: Session, task: DocumentTask, document) -> None:
             else:
                 # 文本健康：docling 提供结构化（表格/标题），失败则回退 pdfium 文本，离线可用
                 _publish_progress(db, task, "extract", "docling 结构化抽取")
-                import tempfile
 
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
                 try:

@@ -29,6 +29,12 @@ class FindingCollector:
         self.db = db
         self.task = task
         self.items: list[CheckFinding] = []
+        self.skipped: list[str] = []
+
+    def note_skipped(self, rule: str) -> None:
+        """检查器对当前格式无法可靠执行的规则显式记 skip（不产生误报）。"""
+        if rule not in self.skipped:
+            self.skipped.append(rule)
 
     def add(
         self,
@@ -59,17 +65,20 @@ class FindingCollector:
         self.db.flush()
 
 
-def summarize(findings: list[CheckFinding]) -> dict:
+def summarize(findings: list[CheckFinding], skipped: list[str] | None = None) -> dict:
     by_severity = {"error": 0, "warning": 0, "info": 0}
     by_checker: dict[str, int] = {}
     for f in findings:
         by_severity[f.severity] = by_severity.get(f.severity, 0) + 1
         by_checker[f.checker] = by_checker.get(f.checker, 0) + 1
-    return {
+    out = {
         "total": len(findings),
         "by_severity": by_severity,
         "by_checker": by_checker,
     }
+    if skipped:
+        out["skipped"] = list(skipped)
+    return out
 
 
 def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> None:
@@ -83,14 +92,18 @@ def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> 
 
     collector = FindingCollector(db, task)
 
-    # Day12/13：按 requested 顺序在此接入
-    #   if "format" in requested: run_format_checker(db, document, collector)
-    #   if "typo" in requested:   run_typo_checker(db, document, collector)
+    if "format" in requested:
+        from app.checkers.format_checker import FormatChecker
+
+        FormatChecker(db, document, collector, options).run()
+    if "typo" in requested:
+        # Day13 接入
+        pass
 
     collector.flush()
     db.commit()
 
-    stats = {**summarize(collector.items), "checks": requested}
+    stats = {**summarize(collector.items, collector.skipped), "checks": requested}
     task_state.change_status(
         db, task, STATUS_PARSED,
         event_type="task_succeeded", stage="done",
