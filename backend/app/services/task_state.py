@@ -102,8 +102,9 @@ def change_status(
         raise IllegalTransition(f"任务 {task.id} 状态已被并发修改，跳转 {from_status}->{to_status} 中止")
 
     _bump_group(db, task, from_status, to_status)
-    # 文档主档状态跟随最新任务状态
-    db.execute(update(Document).where(Document.id == task.document_id).values(status=to_status))
+    # 文档主档状态只跟随 parse 任务；review/annotate/learn 不覆盖解析结果状态
+    if task.task_type == "parse":
+        db.execute(update(Document).where(Document.id == task.document_id).values(status=to_status))
 
     # 整组全部进入终态时记录批次完成时间
     if task.group_id is not None:

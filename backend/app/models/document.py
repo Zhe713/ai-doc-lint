@@ -211,3 +211,49 @@ class IntentRoute(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
+
+
+# ---- 校验（review）相关常量（W3） ----
+
+CHECKER_FORMAT = "format"
+CHECKER_TYPO = "typo"
+CHECKERS = (CHECKER_FORMAT, CHECKER_TYPO)
+SEVERITY_ERROR = "error"
+SEVERITY_WARNING = "warning"
+SEVERITY_INFO = "info"
+SEVERITIES = (SEVERITY_ERROR, SEVERITY_WARNING, SEVERITY_INFO)
+FINDING_OPEN = "open"
+FINDING_IGNORED = "ignored"
+FINDING_FIXED = "fixed"
+FINDING_STATUSES = (FINDING_OPEN, FINDING_IGNORED, FINDING_FIXED)
+
+
+class CheckFinding(Base, TimestampMixin):
+    """校验发现的问题清单：可筛选、可忽略/标记已修复，是 W7 自动学习的正负例来源。"""
+
+    __tablename__ = "check_findings"
+    __table_args__ = (
+        Index("ix_check_findings_document", "document_id"),
+        Index("ix_check_findings_user_status", "user_id", "status"),
+        Index("ix_check_findings_task", "task_id"),
+        Index("ix_check_findings_checker_rule", "checker", "rule_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    checker: Mapped[str] = mapped_column(String(16), nullable=False)
+    rule_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    severity: Mapped[str] = mapped_column(String(8), nullable=False, default=SEVERITY_WARNING)
+    # 定位：{page, paragraph_index, start, end, snippet}（不同检查器填各自可用字段）
+    location: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    suggestion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default=FINDING_OPEN)

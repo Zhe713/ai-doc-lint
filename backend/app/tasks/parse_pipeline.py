@@ -294,3 +294,8 @@ def run_parse_pipeline(db: Session, task: DocumentTask, document) -> None:
         message="解析完成",
         fields=final_fields,
     )
+
+    # parse 成功后自动创建 review 任务（Day14 起具体检查项由意图路由决定）
+    from app.services.review_service import create_review_task
+
+    create_review_task(db, document)
