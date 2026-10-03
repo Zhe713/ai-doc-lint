@@ -9,8 +9,8 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.document import (
-    CHECKERS,
     STATUS_PARSED,
     CheckFinding,
     Document,
@@ -95,7 +95,7 @@ def summarize(
 
 def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> None:
     options = task.stats or {}
-    requested = options.get("checks") or list(CHECKERS)
+    requested = options.get("checks") or list(settings.default_checks)
     append_event(
         db, task, "stage_progress", stage="review",
         message=f"校验开始：{', '.join(requested)}",
@@ -112,6 +112,10 @@ def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> 
         from app.checkers.typo_checker import TypoChecker
 
         TypoChecker(db, document, collector, options).run()
+    if "clause" in requested:
+        from app.checkers.clause_checker import ClauseChecker
+
+        ClauseChecker(db, document, collector, options).run()
 
     collector.flush()
     db.commit()

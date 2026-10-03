@@ -16,6 +16,7 @@
       <el-select v-model="checker" placeholder="检查器" clearable style="width: 150px">
         <el-option label="格式检查" value="format" />
         <el-option label="错别字" value="typo" />
+        <el-option label="条款检查" value="clause" />
       </el-select>
       <el-select v-model="fstatus" placeholder="处理状态" clearable style="width: 150px">
         <el-option label="待处理" value="open" />
@@ -81,7 +82,7 @@ const fstatus = ref('')
 
 const sevType: Record<string, string> = { error: 'danger', warning: 'warning', info: 'info' }
 const sevLabel: Record<string, string> = { error: '错误', warning: '警告', info: '提示' }
-const checkerLabel: Record<string, string> = { format: '格式', typo: '错别字' }
+const checkerLabel: Record<string, string> = { format: '格式', typo: '错别字', clause: '条款' }
 
 const counts = computed(() => {
   const c = { error: 0, warning: 0, info: 0 }

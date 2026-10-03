@@ -33,6 +33,7 @@
             <el-checkbox-group v-model="optChecks" size="small">
               <el-checkbox label="format">格式校验</el-checkbox>
               <el-checkbox label="typo">错别字</el-checkbox>
+              <el-checkbox label="clause">条款完整性（调用大模型）</el-checkbox>
             </el-checkbox-group>
           </div>
           <el-button type="primary" style="margin-top: 10px; width: 100%" :loading="uploading"

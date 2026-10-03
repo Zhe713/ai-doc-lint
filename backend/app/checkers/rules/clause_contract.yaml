@@ -1,0 +1,65 @@
+# 合同条款规则包（W4 Day17 ClauseChecker）
+# 判定口径：
+#   strong 关键词命中 → 条款存在，不调用 LLM；
+#   仅 weak 关键词命中 → 存疑，打包进入一次 LLM 判定；
+#   两类均无命中     → 明确缺失，直接出 finding（0 token）。
+# 后续招投标/制度等规则包按同结构新增，doc_types 决定加载哪个包。
+version: 1
+doc_types: [contract]
+
+clauses:
+  - id: clause.parties
+    name: 当事人信息
+    required: true
+    severity: error
+    strong: ["甲方", "乙方", "买方", "卖方", "出让方", "受让方", "发包方", "承包方"]
+    weak: ["当事人", "双方信息", "单位名称"]
+
+  - id: clause.subject
+    name: 合同标的
+    required: true
+    severity: error
+    strong: ["标的", "货物名称", "服务内容", "项目名称", "产品名称"]
+    weak: ["标的物", "采购内容", "工程内容"]
+
+  - id: clause.quantity
+    name: 数量
+    required: true
+    severity: warning
+    strong: ["数量", "规格型号", "共计"]
+    weak: ["台", "套", "吨", "米", "件", "批"]
+
+  - id: clause.price
+    name: 价款或报酬
+    required: true
+    severity: error
+    strong: ["价款", "总价", "单价", "合同金额", "报酬", "合同价格"]
+    weak: ["人民币", "元整", "费用合计"]
+
+  - id: clause.performance
+    name: 履行期限、地点和方式
+    required: true
+    severity: warning
+    strong: ["履行期限", "交付时间", "交付地点", "付款方式", "履行方式", "交货时间"]
+    weak: ["交付", "付款", "工期", "履行地"]
+
+  - id: clause.breach
+    name: 违约责任
+    required: true
+    severity: warning
+    strong: ["违约责任", "违约金", "违约条款"]
+    weak: ["赔偿损失", "承担赔偿", "逾期"]
+
+  - id: clause.dispute
+    name: 争议解决
+    required: true
+    severity: warning
+    strong: ["争议解决", "仲裁委员会", "仲裁机构"]
+    weak: ["向人民法院", "提起诉讼", "法院管辖"]
+
+  - id: clause.effective
+    name: 生效条件与签署日期
+    required: false
+    severity: info
+    strong: ["本合同自", "签字并盖章", "签订日期"]
+    weak: ["盖章", "签字", "生效"]

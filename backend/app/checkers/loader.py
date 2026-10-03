@@ -10,6 +10,9 @@ import yaml
 
 RULES_DIR = Path(__file__).parent / "rules"
 DEFAULT_FORMAT_RULES = "format_default.yaml"
+CLAUSE_PACKS = {
+    "contract": "clause_contract.yaml",
+}
 
 
 class RuleConfigError(Exception):
@@ -28,3 +31,25 @@ def load_format_rules(name: str = DEFAULT_FORMAT_RULES) -> dict:
         if not isinstance(data.get(key), dict):
             raise RuleConfigError(f"格式规则包缺少段落: {key}")
     return data
+
+
+@functools.lru_cache(maxsize=8)
+def load_clause_pack(doc_type: str) -> list[dict]:
+    """按文档类型加载条款规则包；该类型无包时返回空列表（调用方据此 skip）。"""
+    name = CLAUSE_PACKS.get(doc_type)
+    if not name:
+        return []
+    path = RULES_DIR / name
+    if not path.exists():
+        raise RuleConfigError(f"条款规则包不存在: {path}")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or data.get("version") != 1:
+        raise RuleConfigError(f"条款规则包格式非法: {path}")
+    clauses = data.get("clauses")
+    if not isinstance(clauses, list) or not clauses:
+        raise RuleConfigError(f"条款规则包没有 clauses: {path}")
+    for clause in clauses:
+        for key in ("id", "name", "strong", "weak"):
+            if key not in clause:
+                raise RuleConfigError(f"条款缺少字段 {key}: {clause}")
+    return clauses
