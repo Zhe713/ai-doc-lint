@@ -3,12 +3,14 @@
 from app.db.session import Base
 from app.models.document import (
     Artifact,
+    CheckFinding,
     Document,
     DocumentTask,
     IntentRoute,
     TaskEvent,
     TaskGroup,
 )
+from app.models.llm import LLMCallLog
 from app.models.user import (
     AuthSession,
     LoginAttempt,
@@ -32,4 +34,6 @@ __all__ = [
     "TaskEvent",
     "Artifact",
     "IntentRoute",
+    "CheckFinding",
+    "LLMCallLog",
 ]

@@ -53,6 +53,19 @@ class Settings(BaseSettings):
         default_factory=lambda: ["format", "typo"], alias="DEFAULT_CHECKS"
     )
 
+    # W4 LLM（OpenAI 兼容协议；密钥只从 .env / 环境变量读取，不入库不写日志）
+    llm_base_url: str = Field(default="", alias="LLM_BASE_URL")
+    llm_api_key: str = Field(default="", alias="LLM_API_KEY")
+    llm_model: str = Field(default="", alias="LLM_MODEL")
+    llm_fallback_base_url: str = Field(default="", alias="LLM_FALLBACK_BASE_URL")
+    llm_fallback_api_key: str = Field(default="", alias="LLM_FALLBACK_API_KEY")
+    llm_fallback_model: str = Field(default="", alias="LLM_FALLBACK_MODEL")
+    llm_timeout_seconds: float = Field(default=60.0, alias="LLM_TIMEOUT_SECONDS")
+    llm_rpm: int = Field(default=60, alias="LLM_RPM")
+    llm_max_retries: int = Field(default=3, alias="LLM_MAX_RETRIES")
+    llm_circuit_fail_threshold: int = Field(default=5, alias="LLM_CIRCUIT_FAIL_THRESHOLD")
+    llm_circuit_recovery_seconds: int = Field(default=30, alias="LLM_CIRCUIT_RECOVERY_SECONDS")
+
     @property
     def database_url(self) -> str:
         return (
