@@ -62,6 +62,7 @@ GATE_UNSUPPORTED = "unsupported"
 ART_ORIGINAL = "original"
 ART_NORMALIZED_JSON = "normalized_json"
 ART_PLAINTEXT = "plaintext"
+ART_ANNOTATED = "annotated"
 
 
 class TimestampMixin:

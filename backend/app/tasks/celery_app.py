@@ -21,6 +21,7 @@ celery_app = Celery(
         "app.tasks.parse",
         "app.tasks.reaper",
         "app.tasks.review",
+        "app.tasks.annotate",
     ],
 )
 
@@ -50,6 +51,7 @@ celery_app.conf.task_routes = {
     "app.tasks.parse.run_parse": {"queue": QUEUE_PARSE},
     "app.tasks.reaper.reap_stalled": {"queue": QUEUE_PARSE},
     "app.tasks.review.run_review": {"queue": QUEUE_REVIEW},
+    "app.tasks.annotate.run_annotate": {"queue": QUEUE_ANNOTATE},
 }
 
 celery_app.conf.beat_schedule = {

@@ -3,6 +3,10 @@
     <div class="page-header">
       <el-button link @click="router.back()">返回</el-button>
       <h3 class="title">校验报告</h3>
+      <el-button type="primary" plain :loading="annotating"
+        style="margin-left: auto" @click="onAnnotate">
+        生成批注版（Word）
+      </el-button>
     </div>
 
     <el-tabs v-model="severity" class="sev-tabs">
@@ -69,6 +73,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Finding, listFindings, setFindingStatus } from '@/api/findings'
+import { downloadAnnotated, requestAnnotated } from '@/api/annotate'
+import { getTask } from '@/api/documents'
 
 const route = useRoute()
 const router = useRouter()
@@ -115,6 +121,37 @@ async function change(row: Finding, status: 'open' | 'ignored' | 'fixed') {
   await setFindingStatus(row.id, status)
   ElMessage.success('状态已更新')
   await reload()
+}
+
+const annotating = ref(false)
+
+async function onAnnotate() {
+  annotating.value = true
+  let taskId = ''
+  try {
+    const created = await requestAnnotated(docId)
+    taskId = created.task_id
+    // 轮询批注任务直到终态
+    for (let i = 0; i < 60; i += 1) {
+      await new Promise((r) => setTimeout(r, 2000))
+      const task = await getTask(taskId)
+      if (task.status === 'parsed') {
+        await downloadAnnotated(taskId)
+        ElMessage.success('批注版已生成并开始下载')
+        return
+      }
+      if (task.status === 'failed') {
+        ElMessage.error(task.error_message || '生成失败')
+        return
+      }
+    }
+    ElMessage.warning('生成超时，请稍后在任务中查看')
+  } catch (e: unknown) {
+    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    ElMessage.error(detail || '生成批注版失败')
+  } finally {
+    annotating.value = false
+  }
 }
 
 onMounted(reload)
