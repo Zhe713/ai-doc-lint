@@ -1,6 +1,7 @@
 """导入全部模型，供 Alembic 与 create_all 收集 metadata。"""
 
 from app.db.session import Base
+from app.models.chat import ChatMessage, ChatSession
 from app.models.document import (
     Artifact,
     CheckFinding,
@@ -35,5 +36,7 @@ __all__ = [
     "Artifact",
     "IntentRoute",
     "CheckFinding",
+    "ChatSession",
+    "ChatMessage",
     "LLMCallLog",
 ]

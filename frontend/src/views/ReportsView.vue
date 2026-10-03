@@ -3,8 +3,11 @@
     <div class="page-header">
       <el-button link @click="router.back()">返回</el-button>
       <h3 class="title">校验报告</h3>
+      <el-button type="primary" plain @click="openAssistant">
+        AI 助手
+      </el-button>
       <el-button type="primary" plain :loading="annotating"
-        style="margin-left: auto" @click="onAnnotate">
+        @click="onAnnotate">
         生成批注版（Word）
       </el-button>
     </div>
@@ -65,6 +68,35 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <el-drawer v-model="assistantOpen" title="AI 文档助手" size="420px"
+               append-to-body destroy-on-close>
+      <div class="chat-wrap">
+        <div class="chat-quick">
+          <el-button size="small" round
+            @click="sendQuick('summarize')">整体总结</el-button>
+          <el-button size="small" round
+            @click="sendQuick('list_findings')">列出问题</el-button>
+          <el-button size="small" round
+            @click="sendQuick('locate_finding')">原文位置</el-button>
+        </div>
+
+        <div ref="chatBody" class="chat-body">
+          <div v-for="m in chatMessages" :key="m.localKey"
+               class="chat-msg" :class="m.role">
+            <div class="bubble" style="white-space: pre-wrap;">{{ m.content }}<span
+              v-if="m.streaming" class="caret">▍</span></div>
+          </div>
+        </div>
+
+        <div class="chat-input">
+          <el-input v-model="chatDraft" placeholder="问问这份文档的问题，Enter 发送"
+                    size="default" @keyup.enter="sendChat" />
+          <el-button type="primary" :loading="chatSending"
+                     @click="sendChat">发送</el-button>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -74,6 +106,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Finding, listFindings, setFindingStatus } from '@/api/findings'
 import { downloadAnnotated, requestAnnotated } from '@/api/annotate'
+import { createChatSession, streamChat } from '@/api/chat'
 import { getTask } from '@/api/documents'
 
 const route = useRoute()
@@ -155,6 +188,88 @@ async function onAnnotate() {
 }
 
 onMounted(reload)
+
+// ---------------- AI 助手 ----------------
+
+interface UIMessage {
+  localKey: number
+  role: 'user' | 'assistant'
+  content: string
+  streaming?: boolean
+}
+
+const assistantOpen = ref(false)
+const chatMessages = ref<UIMessage[]>([])
+const chatDraft = ref('')
+const chatSending = ref(false)
+const chatBody = ref<HTMLElement | null>(null)
+let chatSessionId = ''
+let localSeq = 0
+
+function scrollBottom() {
+  requestAnimationFrame(() => {
+    const el = chatBody.value
+    if (el) el.scrollTop = el.scrollHeight
+  })
+}
+
+async function openAssistant() {
+  assistantOpen.value = true
+  if (chatSessionId) return
+  const session = await createChatSession(docId)
+  chatSessionId = session.id
+  chatMessages.value = [{
+    localKey: localSeq++, role: 'assistant',
+    content: '你好，我是这份文档的校验助手。可以问我：有哪些问题、这条什么意思、怎么改、原文在哪里。'
+  }]
+}
+
+function pushMessage(role: 'user' | 'assistant', content: string,
+                    streaming = false): UIMessage {
+  const msg: UIMessage = { localKey: localSeq++, role, content, streaming }
+  chatMessages.value.push(msg)
+  scrollBottom()
+  return msg
+}
+
+async function fire(content: string, buttonIntent?: string) {
+  if (!content.trim()) return
+  chatSending.value = true
+  pushMessage('user', content)
+  const reply = pushMessage('assistant', '', true)
+  try {
+    await streamChat(
+      chatSessionId, content,
+      {
+        onDelta: (t) => { reply.content += t; scrollBottom() },
+        onDone: () => { reply.streaming = false },
+        onError: (t) => {
+          reply.streaming = false
+          reply.content = t
+        }
+      },
+      buttonIntent
+    )
+  } finally {
+    reply.streaming = false
+    chatSending.value = false
+  }
+}
+
+function sendChat() {
+  const text = chatDraft.value
+  chatDraft.value = ''
+  fire(text)
+}
+
+function sendQuick(intent: string) {
+  const map: Record<string, string> = {
+    summarize: '总结一下这份文档',
+    list_findings: '列出所有待处理问题',
+    locate_finding: '这个问题在原文哪里'
+  }
+  fire(map[intent], intent)
+}
 </script>
 
 <style scoped>
@@ -178,5 +293,54 @@ onMounted(reload)
 .snippet {
   color: #909399;
   font-size: 12px;
+}
+.chat-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.chat-quick {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 10px;
+}
+.chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px;
+}
+.chat-msg {
+  display: flex;
+  margin-bottom: 10px;
+}
+.chat-msg.user {
+  justify-content: flex-end;
+}
+.chat-msg .bubble {
+  max-width: 82%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.chat-msg.user .bubble {
+  background: #409eff;
+  color: #fff;
+}
+.chat-msg.assistant .bubble {
+  background: #f4f4f5;
+  color: #303133;
+}
+.caret {
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+.chat-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #ebeef5;
 }
 </style>
