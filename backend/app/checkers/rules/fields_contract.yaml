@@ -1,0 +1,90 @@
+version: 1
+# 合同字段抽取规则包（规则层，0 token；未命中字段由 LLM 批量补抽）
+# patterns 按顺序尝试，第一个捕获组为字段原始值；unit_group 为金额单位捕获组名
+fields:
+  - key: contract_no
+    label: 合同编号
+    type: string
+    patterns:
+      - '合同编号[：:]\s*([A-Za-z0-9][A-Za-z0-9\-_/（）()\.]+)'
+
+  - key: project_no
+    label: 项目编号
+    type: string
+    patterns:
+      - '项目编号[：:]\s*([A-Za-z0-9][A-Za-z0-9\-_/（）()\.]+)'
+
+  - key: contract_title
+    label: 合同名称
+    type: string
+    patterns:
+      - '合同名称[：:]\s*([^\n\r]+)'
+
+  - key: project_name
+    label: 项目名称
+    type: string
+    patterns:
+      - '项目名称[：:]\s*([^\n\r]+)'
+
+  - key: party_a
+    label: 采购人（甲方）
+    type: string
+    patterns:
+      - '采购人（甲方）[：:]\s*([^\n\r]+)'
+      - '采购人\s*[（(]甲方[）)]\s*[：:]\s*([^\n\r]+)'
+      - '甲方[（(][^）)]{0,12}[）)]\s*[：:]\s*([^\n\r]+)'
+      - '甲方\s*[：:]\s*([^\n\r，,。；;]+)'
+
+  - key: party_b
+    label: 供应商（乙方）
+    type: string
+    patterns:
+      - '供应商（乙方）[：:]\s*([^\n\r]+)'
+      - '供应商\s*[（(]乙方[）)]\s*[：:]\s*([^\n\r]+)'
+      - '乙方[（(][^）)]{0,12}[）)]\s*[：:]\s*([^\n\r]+)'
+      - '乙方\s*[：:]\s*([^\n\r，,。；;]+)'
+
+  - key: unit_price
+    label: 单价
+    type: money
+    patterns:
+      - '(?:主要标的)?单价[：:]\s*([0-9][0-9,]*(?:\.\d+)?)\s*(万元|元)?'
+
+  - key: quantity
+    label: 数量
+    type: number
+    patterns:
+      - '(?:主要标的)?数量[：:]\s*([0-9][0-9,]*(?:\.\d+)?)\s*(批|个|项|套|台|份|件)?'
+
+  - key: total_amount
+    label: 合同金额
+    type: money
+    patterns:
+      - '合同总?金额[：:]\s*([0-9][0-9,]*(?:\.\d+)?)\s*(万元|元)?'
+      - '总?价款[：:]\s*人民币?\s*([0-9][0-9,]*(?:\.\d+)?)\s*(万元|元)?'
+
+  - key: amount_upper
+    label: 金额大写
+    type: string
+    patterns:
+      - '(?:合同)?金额(?:\s*[（(][^）)]*大写[^）)]*[）)])?[：:]\s*(?:人民币)?\s*([零壹贰叁肆伍陆柒捌玖拾佰仟万亿][零壹贰叁肆伍陆柒捌玖拾佰仟万亿元圆整正]{2,})'
+      - '大写[：:]\s*(?:人民币)?\s*([零壹贰叁肆伍陆柒捌玖拾佰仟万亿][零壹贰叁肆伍陆柒捌玖拾佰仟万亿元圆整正]{2,})'
+
+  - key: sign_date
+    label: 合同签订日期
+    type: date
+    patterns:
+      - '合同签订日期[：:]\s*(\d{4}\s*[-/年]\s*\d{1,2}\s*[-/月]\s*\d{1,2}\s*日?)'
+      - '签订(?:日期|时间)[：:]\s*(\d{4}\s*[-/年]\s*\d{1,2}\s*[-/月]\s*\d{1,2}\s*日?)'
+
+  - key: delivery_date
+    label: 交付（交货）日期
+    type: date
+    patterns:
+      - '(?:交付|交货|履约)(?:日期|期限|时间)[：:]\s*(\d{4}\s*[-/年]\s*\d{1,2}\s*[-/月]\s*\d{1,2}\s*日?)'
+
+  - key: announce_date
+    label: 合同公告日期
+    type: date
+    patterns:
+      - '合同公告日期[：:]\s*(\d{4}\s*[-/年]\s*\d{1,2}\s*[-/月]\s*\d{1,2}\s*日?)'

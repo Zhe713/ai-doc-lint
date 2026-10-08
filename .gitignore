@@ -38,6 +38,7 @@ data/
 logs/
 *.log
 *.sqlite3
+docker-compose.override.yml
 
 # 上传与演示临时文件
 uploads/

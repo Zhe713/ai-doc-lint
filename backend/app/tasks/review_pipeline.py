@@ -104,6 +104,15 @@ def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> 
 
     collector = FindingCollector(db, task)
 
+    # 字段抽取：规则层始终执行（0 token）；仅当请求交叉比对时允许 LLM 补抽
+    from app.extract.field_extractor import FieldExtractor
+
+    extractor = FieldExtractor(db, document,
+                               allow_llm="cross" in requested)
+    extractor.run()
+    for warning in extractor.warnings:
+        collector.add_warning(warning)
+
     if "format" in requested:
         from app.checkers.format_checker import FormatChecker
 

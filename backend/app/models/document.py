@@ -26,7 +26,7 @@ from app.db.session import Base
 
 # ---- 任务状态机常量（见 services/task_state.py 的合法跳转表） ----
 
-TASK_TYPES = ("parse", "review", "annotate", "learn")
+TASK_TYPES = ("parse", "review", "annotate", "learn", "cross_compare")
 # parse=本周期；review/annotate/learn 仅定义队列与类型，W4/W7 才会入任务
 STATUS_PENDING = "pending"
 STATUS_RUNNING = "running"
@@ -219,7 +219,10 @@ class IntentRoute(Base):
 CHECKER_FORMAT = "format"
 CHECKER_TYPO = "typo"
 CHECKER_CLAUSE = "clause"
-CHECKERS = (CHECKER_FORMAT, CHECKER_TYPO, CHECKER_CLAUSE)
+CHECKER_CROSS = "cross"
+CHECKER_CROSS_DOC = "cross_doc"
+CHECKERS = (CHECKER_FORMAT, CHECKER_TYPO, CHECKER_CLAUSE,
+            CHECKER_CROSS, CHECKER_CROSS_DOC)
 SEVERITY_ERROR = "error"
 SEVERITY_WARNING = "warning"
 SEVERITY_INFO = "info"
@@ -254,8 +257,106 @@ class CheckFinding(Base, TimestampMixin):
     checker: Mapped[str] = mapped_column(String(16), nullable=False)
     rule_id: Mapped[str] = mapped_column(String(64), nullable=False)
     severity: Mapped[str] = mapped_column(String(8), nullable=False, default=SEVERITY_WARNING)
+    # 跨文档比对时关联的另一份文档（checker=cross_doc）
+    related_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="SET NULL"), nullable=True,
+    )
     # 定位：{page, paragraph_index, start, end, snippet}（不同检查器填各自可用字段）
     location: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     suggestion: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(12), nullable=False, default=FINDING_OPEN)
+
+
+# ---- 字段抽取与交叉比对（W5） ----
+
+# 字段值类型
+FIELD_STRING = "string"
+FIELD_NUMBER = "number"
+FIELD_MONEY = "money"
+FIELD_DATE = "date"
+FIELD_PERCENT = "percent"
+FIELD_TYPES = (FIELD_STRING, FIELD_NUMBER, FIELD_MONEY, FIELD_DATE,
+               FIELD_PERCENT)
+# 抽取来源
+FIELD_SOURCE_RULE = "rule"
+FIELD_SOURCE_LLM = "llm"
+
+
+class DocumentField(Base, TimestampMixin):
+    """从文档中抽取出的结构化字段：交叉比对、比对矩阵的数据源。
+
+    规则优先（source=rule，0 token）；规则失败才由 LLM 批量补抽（source=llm）。
+    """
+
+    __tablename__ = "document_fields"
+    __table_args__ = (
+        Index("ix_document_fields_doc_key", "document_id", "field_key",
+              unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
+                                    autoincrement=True)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    field_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    field_label: Mapped[str] = mapped_column(String(128), nullable=False)
+    value_type: Mapped[str] = mapped_column(String(16), nullable=False,
+                                           default=FIELD_STRING)
+    value_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    value_number: Mapped[float | None] = mapped_column(Float, nullable=True)
+    value_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False,
+                                             default=1.0)
+    source: Mapped[str] = mapped_column(String(8), nullable=False,
+                                        default=FIELD_SOURCE_RULE)
+    location: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
+class CompareGroup(Base, TimestampMixin):
+    """文档间比对组：用户勾选多份文档（招标+中标+合同 / 主合同+补充协议）。"""
+
+    __tablename__ = "compare_groups"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),
+                                          primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False,
+                                       default=STATUS_PENDING, index=True)
+    stats: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+
+
+class CompareGroupDocument(Base):
+    """比对组与文档的关联（组内顺序即矩阵列顺序）。"""
+
+    __tablename__ = "compare_group_documents"
+    __table_args__ = (
+        Index("ix_compare_group_doc_unique", "compare_group_id",
+              "document_id", unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
+                                    autoincrement=True)
+    compare_group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("compare_groups.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -69,6 +69,61 @@ def _get_owned_task(db: Session, user: User, task_id: uuid.UUID) -> DocumentTask
     return task
 
 
+@router.get("/documents/{doc_id}/fields")
+def list_fields(
+    doc_id: uuid.UUID, db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+):
+    doc = _get_owned_document(db, current, doc_id)
+    from app.models.document import DocumentField
+
+    rows = db.execute(
+        select(DocumentField)
+        .where(DocumentField.document_id == doc.id)
+        .order_by(DocumentField.id)
+    ).scalars().all()
+    return [_field_dict(r) for r in rows]
+
+
+@router.post("/documents/{doc_id}/extract", status_code=200)
+def extract_fields(
+    doc_id: uuid.UUID, db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+):
+    doc = _get_owned_document(db, current, doc_id)
+    from app.extract.field_extractor import FieldExtractor
+
+    extractor = FieldExtractor(db, doc, allow_llm=True)
+    fields = extractor.run()
+    db.commit()
+    return {"fields": [_field_dict(f) for f in fields],
+            "warnings": extractor.warnings}
+
+
+def _get_owned_document(db: Session, user: User,
+                        doc_id: uuid.UUID):
+    doc = db.get(Document, doc_id)
+    if doc is None or doc.user_id != user.id:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    return doc
+
+
+def _field_dict(row) -> dict:
+    return {
+        "id": row.id,
+        "document_id": str(row.document_id),
+        "field_key": row.field_key,
+        "field_label": row.field_label,
+        "value_type": row.value_type,
+        "value_text": row.value_text,
+        "value_number": row.value_number,
+        "value_date": row.value_date.isoformat() if row.value_date else None,
+        "confidence": row.confidence,
+        "source": row.source,
+        "location": row.location,
+    }
+
+
 @router.post("/documents/upload", response_model=UploadOut, status_code=201)
 async def upload_documents(
     files: list[UploadFile] = File(...),

@@ -13,6 +13,9 @@ DEFAULT_FORMAT_RULES = "format_default.yaml"
 CLAUSE_PACKS = {
     "contract": "clause_contract.yaml",
 }
+FIELD_PACKS = {
+    "contract": "fields_contract.yaml",
+}
 
 
 class RuleConfigError(Exception):
@@ -53,3 +56,25 @@ def load_clause_pack(doc_type: str) -> list[dict]:
             if key not in clause:
                 raise RuleConfigError(f"条款缺少字段 {key}: {clause}")
     return clauses
+
+
+@functools.lru_cache(maxsize=8)
+def load_field_pack(doc_type: str) -> list[dict]:
+    """按文档类型加载字段抽取规则包；该类型无包时返回空列表。"""
+    name = FIELD_PACKS.get(doc_type)
+    if not name:
+        return []
+    path = RULES_DIR / name
+    if not path.exists():
+        raise RuleConfigError(f"字段规则包不存在: {path}")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or data.get("version") != 1:
+        raise RuleConfigError(f"字段规则包格式非法: {path}")
+    fields = data.get("fields")
+    if not isinstance(fields, list) or not fields:
+        raise RuleConfigError(f"字段规则包没有 fields: {path}")
+    for field in fields:
+        for key in ("key", "label", "type", "patterns"):
+            if key not in field:
+                raise RuleConfigError(f"字段缺少 {key}: {field}")
+    return fields

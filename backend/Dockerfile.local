@@ -1,0 +1,21 @@
+# 本地增量构建：基于已含全部系统库与Python依赖的W4镜像，只覆盖业务代码（无网络下载）
+ARG BASE_IMAGE=ai-doc-lint-worker:latest
+FROM ${BASE_IMAGE}
+
+USER root
+WORKDIR /app
+ENV PYTHONPATH=/app TZ=Asia/Shanghai
+
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
+COPY entrypoint.sh ./entrypoint.sh
+COPY tests ./tests
+
+RUN sed -i 's/\r$//' ./entrypoint.sh \
+    && chmod +x ./entrypoint.sh \
+    && chown -R appuser:appuser /app
+
+USER appuser
+EXPOSE 8000
+ENTRYPOINT ["./entrypoint.sh"]
