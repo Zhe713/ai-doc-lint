@@ -16,6 +16,9 @@ CLAUSE_PACKS = {
 FIELD_PACKS = {
     "contract": "fields_contract.yaml",
 }
+CROSS_PACKS = {
+    "contract": "cross_contract.yaml",
+}
 
 
 class RuleConfigError(Exception):
@@ -78,3 +81,25 @@ def load_field_pack(doc_type: str) -> list[dict]:
             if key not in field:
                 raise RuleConfigError(f"字段缺少 {key}: {field}")
     return fields
+
+
+@functools.lru_cache(maxsize=8)
+def load_cross_rules(doc_type: str) -> dict | None:
+    """按文档类型加载交叉比对规则包；该类型无包时返回 None（调用方据此 skip）。"""
+    name = CROSS_PACKS.get(doc_type)
+    if not name:
+        return None
+    path = RULES_DIR / name
+    if not path.exists():
+        raise RuleConfigError(f"交叉比对规则包不存在: {path}")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or data.get("version") != 1:
+        raise RuleConfigError(f"交叉比对规则包格式非法: {path}")
+    checks = data.get("checks")
+    if not isinstance(checks, list) or not checks:
+        raise RuleConfigError(f"交叉比对规则包没有 checks: {path}")
+    for check in checks:
+        for key in ("id", "name", "fields", "severity"):
+            if key not in check:
+                raise RuleConfigError(f"勾稽规则缺少 {key}: {check}")
+    return data

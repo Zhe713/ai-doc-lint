@@ -125,6 +125,10 @@ def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> 
         from app.checkers.clause_checker import ClauseChecker
 
         ClauseChecker(db, document, collector, options).run()
+    if "cross" in requested:
+        from app.checkers.cross_checker import CrossChecker
+
+        CrossChecker(db, document, collector, options).run()
 
     collector.flush()
     db.commit()

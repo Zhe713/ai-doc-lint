@@ -1,0 +1,33 @@
+version: 1
+# 文档内交叉比对（勾稽）规则包：基于 document_fields 抽取出的字段做一致性校验
+# 每个 check 定义一组参与勾稽的字段；字段缺失时跳过（不误报）
+# 说明：勾稽全部为确定性计算，0 token
+checks:
+  - id: upper_vs_lower_amount
+    name: 金额大写与小写一致
+    fields: [total_amount, amount_upper]
+    severity: error
+    message: 合同金额小写「{lower}」与大写「{upper}」不一致
+    suggestion: 请核对金额大小写，以大写金额为准修正
+
+  - id: price_times_qty_total
+    name: 单价×数量=总价
+    fields: [unit_price, quantity, total_amount]
+    severity: error
+    tolerance_ratio: 0.01
+    message: 单价 {price} × 数量 {qty} = {calc}，与合同总价 {total} 不一致
+    suggestion: 请核对单价、数量与总价之间的计算关系
+
+  - id: sign_before_delivery
+    name: 签订日期早于交付日期
+    fields: [sign_date, delivery_date]
+    severity: warning
+    message: 合同签订日期 {sign} 晚于交付日期 {delivery}
+    suggestion: 交付日期不应早于合同签订日期，请核实
+
+  - id: announce_after_sign
+    name: 公告日期不早于签订日期
+    fields: [sign_date, announce_date]
+    severity: info
+    message: 合同公告日期 {announce} 早于签订日期 {sign}
+    suggestion: 公告日期一般晚于签订日期，请核实
