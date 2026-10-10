@@ -13,6 +13,7 @@ from app.api import (
     findings,
     health,
     rules,
+    search,
     setup,
     users,
     ws,
@@ -26,6 +27,7 @@ api_router.include_router(admin.router)
 api_router.include_router(documents.router)
 api_router.include_router(compare.router)
 api_router.include_router(rules.router)
+api_router.include_router(search.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(findings.router)
 api_router.include_router(annotate.router)
