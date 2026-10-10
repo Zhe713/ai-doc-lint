@@ -30,6 +30,9 @@ dependencies = [
     "pyyaml>=6.0",
     "pycorrector>=1.0",
     "pyahocorasick>=2.1",
+    "pgvector>=0.3",
+    "sentence-transformers>=3.0",
+    "modelscope>=1.15",
 ]
 
 [project.optional-dependencies]

@@ -36,6 +36,14 @@ def _ensure_test_database() -> None:
 
 _ensure_test_database()
 
+# W6：测试库启用 pgvector 扩展（document_chunks 建表依赖）
+_test_dsn = (
+    f"postgresql://{settings.postgres_user}:{settings.postgres_password}"
+    f"@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_test_db}"
+)
+with psycopg.connect(_test_dsn, autocommit=True) as conn:
+    conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+
 test_engine = create_engine(settings.test_database_url, future=True)
 TestSessionLocal = sessionmaker(bind=test_engine, autoflush=False, future=True)
 

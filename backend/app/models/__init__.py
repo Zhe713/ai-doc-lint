@@ -11,6 +11,7 @@ from app.models.document import (
     TaskEvent,
     TaskGroup,
 )
+from app.models.embed import DocumentChunk
 from app.models.llm import LLMCallLog
 from app.models.rules import RulePack
 from app.models.user import (
@@ -38,6 +39,7 @@ __all__ = [
     "IntentRoute",
     "CheckFinding",
     "RulePack",
+    "DocumentChunk",
     "ChatSession",
     "ChatMessage",
     "LLMCallLog",

@@ -14,6 +14,7 @@ QUEUE_REVIEW = "review"
 QUEUE_ANNOTATE = "annotate"
 QUEUE_LEARN = "learn"
 QUEUE_CROSS_COMPARE = "cross_compare"
+QUEUE_EMBED = "embed"
 
 celery_app = Celery(
     "ai_doc_lint",
@@ -24,6 +25,7 @@ celery_app = Celery(
         "app.tasks.review",
         "app.tasks.annotate",
         "app.tasks.cross_compare",
+        "app.tasks.embed",
     ],
 )
 
@@ -48,6 +50,7 @@ celery_app.conf.task_queues = (
     Queue(QUEUE_ANNOTATE, routing_key=QUEUE_ANNOTATE),
     Queue(QUEUE_LEARN, routing_key=QUEUE_LEARN),
     Queue(QUEUE_CROSS_COMPARE, routing_key=QUEUE_CROSS_COMPARE),
+    Queue(QUEUE_EMBED, routing_key=QUEUE_EMBED),
 )
 
 celery_app.conf.task_routes = {
@@ -56,6 +59,7 @@ celery_app.conf.task_routes = {
     "app.tasks.review.run_review": {"queue": QUEUE_REVIEW},
     "app.tasks.annotate.run_annotate": {"queue": QUEUE_ANNOTATE},
     "app.tasks.cross_compare.run_cross_compare": {"queue": QUEUE_CROSS_COMPARE},
+    "app.tasks.embed.run_embed": {"queue": QUEUE_EMBED},
 }
 
 celery_app.conf.beat_schedule = {

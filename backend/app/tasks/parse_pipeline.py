@@ -305,3 +305,12 @@ def run_parse_pipeline(db: Session, task: DocumentTask, document) -> None:
         checks=route_opts.get("checks"),
         doc_type_hint=route_opts.get("doc_type"),
     )
+
+    # W6：解析成功后自动向量化（本地 bge 模型，0 token；失败不影响已入库产物）
+    try:
+        from app.tasks.embed import create_embed_task
+
+        create_embed_task(db, document)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("create_embed_task failed, skip: %s", exc)
+        db.rollback()
