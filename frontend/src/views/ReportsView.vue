@@ -239,7 +239,7 @@ function pushMessage(role: 'user' | 'assistant', content: string,
   return msg
 }
 
-// ---- 打字机渲染：每 24ms 移入 1 字符（约 40 字/秒，接近阅读节奏） ----
+// ---- 打字机渲染：每 24ms 移入 1 字符（约 40 字/秒）；流结束后剩余内容同样慢速上屏 ----
 let typer: number | undefined
 
 function startTyper() {
@@ -248,13 +248,8 @@ function startTyper() {
     let active = false
     for (const m of chatMessages.value) {
       if (m.pending) {
-        if (m.streaming) {
-          m.display += m.pending.slice(0, 1)
-          m.pending = m.pending.slice(1)
-        } else {
-          m.display += m.pending
-          m.pending = ''
-        }
+        m.display += m.pending.slice(0, 1)
+        m.pending = m.pending.slice(1)
         active = true
       }
     }
@@ -280,7 +275,7 @@ async function fire(content: string, buttonIntent?: string) {
       chatSessionId, content,
       {
         onDelta: (t) => { reply.pending += t; startTyper() },
-        onDone: () => { reply.streaming = false; flushPending(reply) },
+        onDone: () => { reply.streaming = false },   // 不灌剩余，打字机继续慢速渲染
         onError: (t) => {
           reply.streaming = false
           flushPending(reply)
@@ -292,7 +287,6 @@ async function fire(content: string, buttonIntent?: string) {
     )
   } finally {
     reply.streaming = false
-    flushPending(reply)
     chatSending.value = false
   }
 }
