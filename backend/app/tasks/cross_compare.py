@@ -8,6 +8,7 @@ import uuid
 
 from app.db.session import SessionLocal
 from app.models.document import (
+    STATUS_PARSED,
     STATUS_PENDING,
     CompareGroup,
     CompareGroupDocument,
