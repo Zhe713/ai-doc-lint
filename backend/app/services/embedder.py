@@ -2,11 +2,13 @@
 
 - 模型经 ModelScope 下载（境内可达；HF 直连被墙已实测），落到 modelcache 卷持久化；
 - 进程级懒加载单例：首次调用下载+加载，之后复用，不重复占内存；
+- 下载加跨进程文件锁：多 worker 并发首载时只允许一个进程下载，避免目录损坏；
 - 纯本地推理，0 token；维度 512。
 """
 
 from __future__ import annotations
 
+import fcntl
 import logging
 import os
 
@@ -18,13 +20,21 @@ _MODEL = None
 _MODEL_LOCK = False
 
 
-def _download_model(model_dir: str) -> str:
-    """ModelScope 下载模型到指定目录；已存在则直接复用。"""
+def _download_model(repo_dir: str) -> str:
+    """ModelScope 下载模型到 repo_dir（返回真实模型快照路径）。"""
     from modelscope import snapshot_download
 
-    os.makedirs(model_dir, exist_ok=True)
-    path = snapshot_download(MODEL_REPO, cache_dir=model_dir)
-    return path
+    os.makedirs(repo_dir, exist_ok=True)
+    lock_path = os.path.join(repo_dir, ".download.lock")
+    with open(lock_path, "w") as lf:
+        fcntl.flock(lf, fcntl.LOCK_EX)
+        try:
+            if not os.path.exists(os.path.join(repo_dir, "config.json")):
+                path = snapshot_download(MODEL_REPO, cache_dir=repo_dir)
+                return path
+            return repo_dir
+        finally:
+            fcntl.flock(lf, fcntl.LOCK_UN)
 
 
 def get_model():
@@ -38,10 +48,12 @@ def get_model():
     _MODEL_LOCK = True
     try:
         cache_root = os.environ.get("MODEL_CACHE_DIR", "/root/.cache")
-        model_dir = os.path.join(cache_root, "bge-small-zh-v1.5")
-        if not os.path.isdir(model_dir) or not os.listdir(model_dir):
+        repo_dir = os.path.join(cache_root, "bge-small-zh-v1.5")
+        if not os.path.exists(os.path.join(repo_dir, "config.json")):
             log.info("downloading embedding model from ModelScope: %s", MODEL_REPO)
-            model_dir = _download_model(model_dir)
+            model_dir = _download_model(repo_dir)
+        else:
+            model_dir = repo_dir
         from sentence_transformers import SentenceTransformer
 
         _MODEL = SentenceTransformer(model_dir)
