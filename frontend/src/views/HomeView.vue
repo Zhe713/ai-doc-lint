@@ -22,11 +22,14 @@
         <el-timeline-item timestamp="W3 · 已完成" type="success">
           格式规则引擎 + 错别字检查 + 意图漏斗 L1/L2 + 网页校验报告
         </el-timeline-item>
-        <el-timeline-item timestamp="W4 · 进行中" type="primary">
+        <el-timeline-item timestamp="W4 · 已完成" type="success">
           MVP：条款内容核查 + 报告增强 + Word 批注下载 + 对话助手（L3）
         </el-timeline-item>
-        <el-timeline-item timestamp="W5-W8 · 规划中">
-          交叉比对、自定义模板、向量检索、自学习闭环、百份并发压测与开源发布
+        <el-timeline-item timestamp="W5 · 已完成" type="success">
+          交叉比对：字段抽取 + 文档内勾稽 + 跨文档比对矩阵（真实合同验收 515 份）
+        </el-timeline-item>
+        <el-timeline-item timestamp="W6-W8 · 规划中">
+          自定义模板、向量检索、自学习闭环、百份并发压测与开源发布
         </el-timeline-item>
       </el-timeline>
       <el-alert
@@ -39,27 +42,32 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { listDocuments } from '@/api/findings'
-import { listGroups } from '@/api/documents'
+
+import { getDashboardStats } from '@/api/dashboard'
 
 const router = useRouter()
-const docCount = ref<number | string>('—')
-const groupCount = ref<number | string>('—')
 
-const cards = ref([
-  { title: '文档总数', value: docCount, note: '已上传到本环境', to: '/documents' },
-  { title: '上传批次', value: groupCount, note: '批量受理记录', to: '/documents' },
-  { title: '发现问题', value: '—', note: '在文档校验报告中查看', to: '/documents' },
-  { title: '规则包', value: '1', note: '格式/错别字内置规则包', to: null }
+const stats = ref({
+  documents: '—' as number | string,
+  groups: '—' as number | string,
+  findings_total: '—' as number | string,
+  findings_by_severity: { error: 0, warning: 0, info: 0 },
+  rule_packs: '—' as number | string
+})
+
+const cards = computed(() => [
+  { title: '文档总数', value: stats.value.documents, note: '已上传到本环境', to: '/documents' },
+  { title: '上传批次', value: stats.value.groups, note: '批量受理记录', to: '/documents' },
+  { title: '发现问题', value: stats.value.findings_total, note: '在文档校验报告中查看', to: '/documents' },
+  { title: '规则包', value: stats.value.rule_packs, note: '格式/条款/字段/勾稽规则包', to: null }
 ])
 
 onMounted(async () => {
   try {
-    const [docs, groups] = await Promise.all([listDocuments(200), listGroups()])
-    docCount.value = docs.length
-    groupCount.value = groups.length
+    const s = await getDashboardStats()
+    stats.value = s
   } catch {
     // 未登录或接口不可用时保持占位
   }
