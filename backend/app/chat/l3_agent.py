@@ -8,6 +8,7 @@ search_in_document / get_document_text），取到证据后再组织回答。
 
 import json
 import logging
+import uuid
 
 from openai import OpenAI
 
@@ -16,6 +17,17 @@ from app.core.config import settings
 from app.llm.client import LLMNotConfiguredError
 
 log = logging.getLogger("chat.l3")
+
+
+def _json_safe(v):
+    """审计元数据写 JSONB 前递归把 UUID 等转成可 JSON 序列化类型。"""
+    if isinstance(v, uuid.UUID):
+        return str(v)
+    if isinstance(v, dict):
+        return {k: _json_safe(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_json_safe(x) for x in v]
+    return v
 
 SYSTEM_PROMPT = (
     "你是 ai-doc-lint 的文档校验助手。只能依据工具返回的内容回答，"
@@ -124,7 +136,8 @@ def run_l3(db, document_id, history: list[dict], user_text: str):
                 except Exception as exc:  # noqa: BLE001
                     result = {"error": f"{type(exc).__name__}: {exc}"}
                 content = json.dumps(result, ensure_ascii=False, default=str)
-            tool_audit.append({"name": call.function.name, "args": args})
+            tool_audit.append({"name": call.function.name,
+                               "args": _json_safe(args)})
             messages.append({
                 "role": "tool", "tool_call_id": call.id, "content": content,
             })
