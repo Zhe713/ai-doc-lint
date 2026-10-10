@@ -134,7 +134,7 @@ function pushMessage(role: 'user' | 'assistant', content: string,
   return msg
 }
 
-// ---- 打字机渲染：每 16ms 从待渲染队列移入 2 字符 ----
+// ---- 打字机渲染：每 24ms 移入 1 字符（约 40 字/秒，接近阅读节奏） ----
 let typer: number | undefined
 
 function startTyper() {
@@ -144,8 +144,8 @@ function startTyper() {
     for (const m of chatMessages.value) {
       if (m.pending) {
         if (m.streaming) {
-          m.display += m.pending.slice(0, 2)
-          m.pending = m.pending.slice(2)
+          m.display += m.pending.slice(0, 1)
+          m.pending = m.pending.slice(1)
         } else {
           m.display += m.pending
           m.pending = ''
@@ -155,7 +155,7 @@ function startTyper() {
     }
     if (active) scrollBottom()
     else { clearInterval(typer); typer = undefined }
-  }, 16)
+  }, 24)
 }
 
 function flushPending(m: UIMessage) {
