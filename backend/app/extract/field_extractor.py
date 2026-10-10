@@ -160,9 +160,15 @@ class FieldExtractor:
                     f"字段补抽未能调用 LLM：{type(exc).__name__}")
                 return result
 
+            seen_keys: set[str] = set()
             for item in items:
+                key = item.get("key")
+                if key in seen_keys:
+                    # LLM 可能对同一字段输出多条（大小写/措辞不同）：取第一条
+                    continue
+                seen_keys.add(key)
                 spec = next((s for s in group
-                             if s["key"] == item.get("key")), None)
+                             if s["key"] == key), None)
                 if spec is None:
                     continue
                 value = (item.get("value") or "").strip()

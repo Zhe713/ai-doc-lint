@@ -134,6 +134,7 @@ def compare_group_detail(
             DocumentField.document_id.in_([d.id for d in docs]))
     ).scalars().all()
     matrix: dict[str, dict[str, dict]] = {}
+    field_labels: dict[str, str] = {}
     for r in field_rows:
         cell = {
             "value_text": r.value_text,
@@ -143,6 +144,7 @@ def compare_group_detail(
             "confidence": r.confidence,
         }
         matrix.setdefault(r.field_key, {})[str(r.document_id)] = cell
+        field_labels.setdefault(r.field_key, r.field_label)
 
     findings = db.execute(
         select(CheckFinding).where(
@@ -160,6 +162,7 @@ def compare_group_detail(
         **_group_out(db, group),
         "documents": [_document_summary(db, d) for d in docs],
         "matrix": matrix,
+        "field_labels": field_labels,
         "findings": [
             {
                 "id": f.id,

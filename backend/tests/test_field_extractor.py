@@ -138,6 +138,31 @@ def test_llm_hallucinated_quote_discarded(monkeypatch):
     db.close()
 
 
+def test_llm_duplicate_key_deduped(monkeypatch):
+    """LLM 对同一字段输出多条（大小写不同）：应去重取第一条，不撞唯一约束。"""
+    # 去掉“合同名称”行，让 contract_title 进入 LLM 补抽
+    no_title = "\n".join(
+        line for line in BASE_ANNOUNCEMENT.splitlines()
+        if "合同名称" not in line
+    )
+    extra = "\nThis Co-Promotion Agreement is made between the parties."
+    payload = json.dumps({"fields": [
+        {"key": "contract_title", "value": "Co-Promotion Agreement",
+         "quote": "This Co-Promotion Agreement"},
+        {"key": "contract_title", "value": "CO-PROMOTION AGREEMENT",
+         "quote": "CO-PROMOTION AGREEMENT"},
+    ]}, ensure_ascii=False)
+    monkeypatch.setattr("app.extract.field_extractor.chat",
+                        lambda *a, **k: SimpleNamespace(content=payload))
+    db, doc = _setup(no_title + extra)
+    fields = FieldExtractor(db, doc, allow_llm=True).run()
+    titles = [f for f in fields if f.field_key == "contract_title"]
+    assert len(titles) == 1
+    assert titles[0].value_text == "Co-Promotion Agreement"
+    assert titles[0].source == "llm"
+    db.close()
+
+
 def test_no_pack_returns_empty():
     db, doc = _setup(FULL_ANNOUNCEMENT, doc_type="general")
     fields = FieldExtractor(db, doc, allow_llm=True).run()
