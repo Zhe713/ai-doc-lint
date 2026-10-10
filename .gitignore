@@ -44,5 +44,13 @@ docker-compose.override.yml
 uploads/
 tmp/
 
-# ??????
+# 截图（验收证据不入库）
 scripts-dev/*.png
+
+# 真实合同语料（来源与许可见 corpus/manifest.csv，语料文件不入库）
+corpus/*
+!corpus/manifest.csv
+
+# 构建/测试临时输出
+scripts-dev/*.txt
+scripts-dev/*.err

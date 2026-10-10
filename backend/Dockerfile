@@ -14,8 +14,12 @@ WORKDIR /app
 USER root
 
 # 系统库：onnxruntime 需要 libxcb/libgomp，opencv 需要 libGL/libglib（slim 镜像默认缺失）
-RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g; s|security.debian.org|mirrors.tuna.tsinghua.edu.cn/debian-security|g' \
-        /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list 2>/dev/null || true; \
+# apt 源：默认 Debian 官方源（2026-10 起清华源间歇 403，官方源经实测可达）；镜像加速可 --build-arg APT_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian
+ARG APT_MIRROR=
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -i "s|deb.debian.org|${APT_MIRROR}|g; s|security.debian.org|${APT_MIRROR}/debian-security|g" \
+            /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list 2>/dev/null || true; \
+    fi; \
     apt-get update \
     && apt-get install -y --no-install-recommends \
         libgomp1 libglib2.0-0 libxcb1 libgl1 libxext6 libx11-6 \
