@@ -13,6 +13,7 @@ QUEUE_PARSE = "parse"
 QUEUE_REVIEW = "review"
 QUEUE_ANNOTATE = "annotate"
 QUEUE_LEARN = "learn"
+QUEUE_CROSS_COMPARE = "cross_compare"
 
 celery_app = Celery(
     "ai_doc_lint",
@@ -22,6 +23,7 @@ celery_app = Celery(
         "app.tasks.reaper",
         "app.tasks.review",
         "app.tasks.annotate",
+        "app.tasks.cross_compare",
     ],
 )
 
@@ -45,6 +47,7 @@ celery_app.conf.task_queues = (
     Queue(QUEUE_REVIEW, routing_key=QUEUE_REVIEW),
     Queue(QUEUE_ANNOTATE, routing_key=QUEUE_ANNOTATE),
     Queue(QUEUE_LEARN, routing_key=QUEUE_LEARN),
+    Queue(QUEUE_CROSS_COMPARE, routing_key=QUEUE_CROSS_COMPARE),
 )
 
 celery_app.conf.task_routes = {
@@ -52,6 +55,7 @@ celery_app.conf.task_routes = {
     "app.tasks.reaper.reap_stalled": {"queue": QUEUE_PARSE},
     "app.tasks.review.run_review": {"queue": QUEUE_REVIEW},
     "app.tasks.annotate.run_annotate": {"queue": QUEUE_ANNOTATE},
+    "app.tasks.cross_compare.run_cross_compare": {"queue": QUEUE_CROSS_COMPARE},
 }
 
 celery_app.conf.beat_schedule = {

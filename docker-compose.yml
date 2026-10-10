@@ -90,7 +90,7 @@ services:
       - "app.tasks.celery_app:celery_app"
       - "worker"
       - "-Q"
-      - "parse,review,annotate,learn"
+      - "parse,review,annotate,learn,cross_compare"
       - "--concurrency"
       - "${PARSE_CONCURRENCY:-2}"
       - "--pool"

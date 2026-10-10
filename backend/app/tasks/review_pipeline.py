@@ -51,6 +51,7 @@ class FindingCollector:
         severity: str = "warning",
         location: dict | None = None,
         suggestion: str | None = None,
+        related_document_id=None,
     ) -> CheckFinding:
         finding = CheckFinding(
             document_id=self.task.document_id,
@@ -62,6 +63,7 @@ class FindingCollector:
             location=location,
             message=message,
             suggestion=suggestion,
+            related_document_id=related_document_id,
         )
         self.db.add(finding)
         self.items.append(finding)
