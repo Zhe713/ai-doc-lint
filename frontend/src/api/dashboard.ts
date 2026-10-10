@@ -6,6 +6,8 @@ export interface DashboardStats {
   findings_total: number
   findings_by_severity: { error: number; warning: number; info: number }
   rule_packs: number
+  chunks: number
+  embedded_docs: number
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
