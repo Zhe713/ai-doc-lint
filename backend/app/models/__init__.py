@@ -12,6 +12,7 @@ from app.models.document import (
     TaskGroup,
 )
 from app.models.llm import LLMCallLog
+from app.models.rules import RulePack
 from app.models.user import (
     AuthSession,
     LoginAttempt,
@@ -36,6 +37,7 @@ __all__ = [
     "Artifact",
     "IntentRoute",
     "CheckFinding",
+    "RulePack",
     "ChatSession",
     "ChatMessage",
     "LLMCallLog",

@@ -1,12 +1,19 @@
-"""格式规则包加载：读取 YAML 并做最小校验。
+"""格式/条款/字段/勾稽规则包加载（W6 Day26 改造）。
 
-W3 只加载内置 format_default.yaml；W6 支持用户自定义路径覆盖。
+加载顺序：启用中的 DB 自定义包（rule_packs 表）优先 → 无则回落内置 YAML。
+- 上传/启停/更新自定义包后调用 invalidate_pack_caches() 清 lru_cache；
+- 校验逻辑统一走 validate.validate_pack_yaml（纯函数，上传 API 复用）。
 """
 
 import functools
 from pathlib import Path
 
-import yaml
+from app.checkers.validate import (
+    PACK_TYPES,
+    RuleConfigError,
+    pack_sub_payload,
+    validate_pack_yaml,
+)
 
 RULES_DIR = Path(__file__).parent / "rules"
 DEFAULT_FORMAT_RULES = "format_default.yaml"
@@ -20,22 +27,61 @@ CROSS_PACKS = {
     "contract": "cross_contract.yaml",
 }
 
+# 可替换的会话工厂：测试注入 TestSessionLocal 以覆盖 DB 优先路径
+_SESSION_FACTORY = None
 
-class RuleConfigError(Exception):
-    pass
+
+def _db_session_factory():
+    global _SESSION_FACTORY
+    if _SESSION_FACTORY is None:
+        from app.db.session import SessionLocal
+        _SESSION_FACTORY = SessionLocal
+    return _SESSION_FACTORY
+
+
+def _db_custom_yaml(pack_type: str, doc_type: str) -> str | None:
+    """查询启用中的自定义规则包 YAML（最新一条）；无则 None。"""
+    if pack_type not in PACK_TYPES:
+        return None
+    from app.models.rules import RulePack
+
+    db = _db_session_factory()()
+    try:
+        row = (
+            db.query(RulePack)
+            .filter(
+                RulePack.pack_type == pack_type,
+                RulePack.doc_type == doc_type,
+                RulePack.enabled.is_(True),
+            )
+            .order_by(RulePack.updated_at.desc())
+            .first()
+        )
+        return row.yaml_content if row else None
+    except Exception:  # noqa: BLE001  表未迁移/库不可用时回落内置包
+        return None
+    finally:
+        db.close()
+
+
+def _load_custom_or_builtin(pack_type: str, doc_type: str,
+                            builtin_name: str | None) -> dict:
+    """自定义包优先；内置文件兜底。返回校验后的 dict。"""
+    custom = _db_custom_yaml(pack_type, doc_type)
+    if custom is not None:
+        return validate_pack_yaml(pack_type, custom)
+    if builtin_name is None:
+        raise RuleConfigError(f"内置规则包不存在: {pack_type}/{doc_type}")
+    path = RULES_DIR / builtin_name
+    if not path.exists():
+        raise RuleConfigError(f"规则包文件不存在: {path}")
+    return validate_pack_yaml(pack_type, path.read_text(encoding="utf-8"))
 
 
 @functools.lru_cache(maxsize=8)
 def load_format_rules(name: str = DEFAULT_FORMAT_RULES) -> dict:
-    path = RULES_DIR / name
-    if not path.exists():
-        raise RuleConfigError(f"格式规则包不存在: {path}")
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("version") != 1:
-        raise RuleConfigError(f"格式规则包格式非法: {path}")
-    for key in ("page", "font", "paragraph", "heading"):
-        if not isinstance(data.get(key), dict):
-            raise RuleConfigError(f"格式规则包缺少段落: {key}")
+    """格式规则包（DB 自定义 format 包优先，doc_type=global）。"""
+    data = _load_custom_or_builtin("format", "global", name)
     return data
 
 
@@ -43,63 +89,43 @@ def load_format_rules(name: str = DEFAULT_FORMAT_RULES) -> dict:
 def load_clause_pack(doc_type: str) -> list[dict]:
     """按文档类型加载条款规则包；该类型无包时返回空列表（调用方据此 skip）。"""
     name = CLAUSE_PACKS.get(doc_type)
-    if not name:
-        return []
-    path = RULES_DIR / name
-    if not path.exists():
-        raise RuleConfigError(f"条款规则包不存在: {path}")
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("version") != 1:
-        raise RuleConfigError(f"条款规则包格式非法: {path}")
-    clauses = data.get("clauses")
-    if not isinstance(clauses, list) or not clauses:
-        raise RuleConfigError(f"条款规则包没有 clauses: {path}")
-    for clause in clauses:
-        for key in ("id", "name", "strong", "weak"):
-            if key not in clause:
-                raise RuleConfigError(f"条款缺少字段 {key}: {clause}")
-    return clauses
+    try:
+        data = _load_custom_or_builtin("clause", doc_type, name)
+        return pack_sub_payload("clause", data)
+    except RuleConfigError:
+        if name is None:
+            return []
+        raise
 
 
 @functools.lru_cache(maxsize=8)
 def load_field_pack(doc_type: str) -> list[dict]:
     """按文档类型加载字段抽取规则包；该类型无包时返回空列表。"""
     name = FIELD_PACKS.get(doc_type)
-    if not name:
-        return []
-    path = RULES_DIR / name
-    if not path.exists():
-        raise RuleConfigError(f"字段规则包不存在: {path}")
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("version") != 1:
-        raise RuleConfigError(f"字段规则包格式非法: {path}")
-    fields = data.get("fields")
-    if not isinstance(fields, list) or not fields:
-        raise RuleConfigError(f"字段规则包没有 fields: {path}")
-    for field in fields:
-        for key in ("key", "label", "type", "patterns"):
-            if key not in field:
-                raise RuleConfigError(f"字段缺少 {key}: {field}")
-    return fields
+    try:
+        data = _load_custom_or_builtin("field", doc_type, name)
+        return pack_sub_payload("field", data)
+    except RuleConfigError:
+        if name is None:
+            return []
+        raise
 
 
 @functools.lru_cache(maxsize=8)
 def load_cross_rules(doc_type: str) -> dict | None:
-    """按文档类型加载交叉比对规则包；该类型无包时返回 None（调用方据此 skip）。"""
+    """按文档类型加载交叉比对规则包；该类型无包时返回 None。"""
     name = CROSS_PACKS.get(doc_type)
-    if not name:
-        return None
-    path = RULES_DIR / name
-    if not path.exists():
-        raise RuleConfigError(f"交叉比对规则包不存在: {path}")
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("version") != 1:
-        raise RuleConfigError(f"交叉比对规则包格式非法: {path}")
-    checks = data.get("checks")
-    if not isinstance(checks, list) or not checks:
-        raise RuleConfigError(f"交叉比对规则包没有 checks: {path}")
-    for check in checks:
-        for key in ("id", "name", "fields", "severity"):
-            if key not in check:
-                raise RuleConfigError(f"勾稽规则缺少 {key}: {check}")
-    return data
+    try:
+        return _load_custom_or_builtin("cross", doc_type, name)
+    except RuleConfigError:
+        if name is None:
+            return None
+        raise
+
+
+def invalidate_pack_caches() -> None:
+    """自定义规则包变更后清空全部加载缓存（量小，全清最稳）。"""
+    load_format_rules.cache_clear()
+    load_clause_pack.cache_clear()
+    load_field_pack.cache_clear()
+    load_cross_rules.cache_clear()
