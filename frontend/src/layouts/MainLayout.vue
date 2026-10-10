@@ -13,8 +13,11 @@
         <el-menu-item index="/compare">
           <el-icon><Connection /></el-icon><span>交叉比对</span>
         </el-menu-item>
-        <el-menu-item index="/rules" disabled>
+        <el-menu-item index="/rules">
           <el-icon><SetUp /></el-icon><span>规则与模板（W3/W6）</span>
+        </el-menu-item>
+        <el-menu-item index="/search">
+          <el-icon><Search /></el-icon><span>语义检索</span>
         </el-menu-item>
         <el-sub-menu v-if="auth.isAdmin" index="admin">
           <template #title>
