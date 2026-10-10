@@ -1,0 +1,937 @@
+{
+  "intra_zh": [
+    {
+      "file": "290b9d66-d6bc-4b9d-9664-8d5fedc32546.txt",
+      "allow_llm": false,
+      "llm_calls": null,
+      "fields": {
+        "contract_no": {
+          "value_text": "HT-2026-04839060",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "project_no": {
+          "value_text": "DDYJ-2026-1901574",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "contract_title": {
+          "value_text": "东莞市技师学院互联网接入服务电子卖场合同",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "project_name": {
+          "value_text": "东莞市技师学院互联网接入服务定点采购",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "party_a": {
+          "value_text": "东莞市技师学院",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "party_b": {
+          "value_text": "中国联合网络通信有限公司东莞市分公司",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "unit_price": {
+          "value_text": "220800.00",
+          "value_number": 220800.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "quantity": {
+          "value_text": "1.00",
+          "value_number": 1.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "total_amount": {
+          "value_text": "22.080000",
+          "value_number": 220799.99999999997,
+          "value_date": null,
+          "source": "rule"
+        },
+        "sign_date": {
+          "value_text": "2026-09-29",
+          "value_number": null,
+          "value_date": "2026-09-29T00:00:00+00:00",
+          "source": "rule"
+        },
+        "announce_date": {
+          "value_text": "2026-10-08",
+          "value_number": null,
+          "value_date": "2026-10-08T00:00:00+00:00",
+          "source": "rule"
+        }
+      },
+      "field_count": 11,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "f1975f20-e57d-40d4-b9c0-c2a3699e51d2"
+    },
+    {
+      "file": "9813769f-1a94-4c63-9aa4-d9b0afbf0cee.txt",
+      "allow_llm": false,
+      "llm_calls": null,
+      "fields": {
+        "contract_no": {
+          "value_text": "HT-2026-04761189",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "project_no": {
+          "value_text": "DDYJ-2026-1859121",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "contract_title": {
+          "value_text": "始兴县明德中学修缮工程电子卖场合同",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "project_name": {
+          "value_text": "始兴县明德中学修缮工程定点采购",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "party_a": {
+          "value_text": "始兴县明德中学",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "party_b": {
+          "value_text": "始兴县志源建筑工程有限公司",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "unit_price": {
+          "value_text": "168926.00",
+          "value_number": 168926.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "quantity": {
+          "value_text": "1.00",
+          "value_number": 1.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "total_amount": {
+          "value_text": "19.431451",
+          "value_number": 194314.50999999998,
+          "value_date": null,
+          "source": "rule"
+        },
+        "sign_date": {
+          "value_text": "2026-07-09",
+          "value_number": null,
+          "value_date": "2026-07-09T00:00:00+00:00",
+          "source": "rule"
+        },
+        "announce_date": {
+          "value_text": "2026-10-08",
+          "value_number": null,
+          "value_date": "2026-10-08T00:00:00+00:00",
+          "source": "rule"
+        }
+      },
+      "field_count": 11,
+      "findings": [
+        {
+          "rule_id": "price_times_qty_total",
+          "severity": "error",
+          "message": "单价 168926.00 × 数量 1.00 = 168,926.00 元，与合同总价 194,314.51 元 不一致"
+        }
+      ],
+      "summary": {
+        "total": 1,
+        "by_severity": {
+          "error": 1,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {
+          "cross": 1
+        }
+      },
+      "doc_id": "5ddd4fbb-a613-4caf-b073-a8338e79253d"
+    },
+    {
+      "file": "b76c15c3-57f3-4699-80c4-4591250db679.txt",
+      "allow_llm": false,
+      "llm_calls": null,
+      "fields": {
+        "contract_no": {
+          "value_text": "HT-2026-04873458",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "project_no": {
+          "value_text": "DDYJ-2026-1938958",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "contract_title": {
+          "value_text": "肇庆高新技术产业开发区社区卫生与计生服务中心印刷服务电子卖场合同",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "project_name": {
+          "value_text": "肇庆高新技术产业开发区社区卫生与计生服务中心印刷服务定点采购",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "party_a": {
+          "value_text": "肇庆高新技术产业开发区社区卫生与计生服务中心",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "party_b": {
+          "value_text": "肇庆市敏捷图文快印有限公司",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "unit_price": {
+          "value_text": "9900.00",
+          "value_number": 9900.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "quantity": {
+          "value_text": "1.00",
+          "value_number": 1.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "total_amount": {
+          "value_text": "0.990000",
+          "value_number": 9900.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "sign_date": {
+          "value_text": "2026-10-08",
+          "value_number": null,
+          "value_date": "2026-10-08T00:00:00+00:00",
+          "source": "rule"
+        },
+        "announce_date": {
+          "value_text": "2026-10-08",
+          "value_number": null,
+          "value_date": "2026-10-08T00:00:00+00:00",
+          "source": "rule"
+        }
+      },
+      "field_count": 11,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "310cad58-0dd9-468c-89cf-6cda2798715b"
+    },
+    {
+      "file": "e4eb10e9-e1c4-4f57-9a62-40d951a03c54.txt",
+      "allow_llm": false,
+      "llm_calls": null,
+      "fields": {
+        "contract_no": {
+          "value_text": "FHZB-2026009",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "project_no": {
+          "value_text": "FHZB-2026009",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "contract_title": {
+          "value_text": "铜川市新区2026-2027学年义务教育阶段营养餐食材采购项目",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "project_name": {
+          "value_text": "铜川市新区2026-2027学年义务教育阶段营养餐食材采购项目",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "party_a": {
+          "value_text": "铜川市教育局新区分局",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "party_b": {
+          "value_text": "陕西马咀优选生鲜供应链有限责任公司",
+          "value_number": null,
+          "value_date": null,
+          "source": "rule"
+        },
+        "unit_price": {
+          "value_text": "1085000.0000",
+          "value_number": 1085000.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "quantity": {
+          "value_text": "1.0000",
+          "value_number": 1.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "total_amount": {
+          "value_text": "108.500000",
+          "value_number": 1085000.0,
+          "value_date": null,
+          "source": "rule"
+        },
+        "sign_date": {
+          "value_text": "2026-08-21",
+          "value_number": null,
+          "value_date": "2026-08-21T00:00:00+00:00",
+          "source": "rule"
+        },
+        "announce_date": {
+          "value_text": "2026-10-08",
+          "value_number": null,
+          "value_date": "2026-10-08T00:00:00+00:00",
+          "source": "rule"
+        }
+      },
+      "field_count": 11,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "0cdee310-dbd7-4b94-a6d2-a1f95deef2d3"
+    }
+  ],
+  "intra_en": [
+    {
+      "file": "000_LIMEENERGYCO_09_09_1999-EX-10-DISTRIBUTOR_AGREEMENT.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_title": {
+          "value_text": "DISTRIBUTOR AGREEMENT",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "Electric City Corp., a Delaware corporat",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "Electric City of Illinois LLC (\"Distribu",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "amount_upper": {
+          "value_text": "Five Hundred Thousand Dollars",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 4,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "31b2c27e-63bc-42ee-a8f3-f7167871ff31"
+    },
+    {
+      "file": "001_WHITESMOKE_INC_11_08_2011-EX-10.26-PROMOTION_AND_DISTRIBUTION_AGREEMENT.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_title": {
+          "value_text": "PROMOTION AND DISTRIBUTION AGREEMENT",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "Whitesmoke Inc., with registered offices",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "Google Inc whose principle place of busi",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 3,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "11375715-2c44-4c44-88bb-5e455187d532"
+    },
+    {
+      "file": "002_LohaCompanyltd_20191209_F-1_EX-10.16_11917878_EX-10.16_Supply_Agreement.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_no": {
+          "value_text": "Contract No:",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "contract_title": {
+          "value_text": "SUPPLY CONTRACT",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "Shenzhen LOHAS Supply Chain Management C",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "The seller:",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 4,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "434ed1f3-11f7-4772-afa9-0540e43c9548"
+    },
+    {
+      "file": "003_CENTRACKINTERNATIONALINC_10_29_1999-EX-10.3-WEB_SITE_HOSTING_AGREEMENT.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_title": {
+          "value_text": "WEB SITE HOSTING AGREEMENT",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "Centrack International, a Florida corpor",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "i-on interactive, a Florida corporation",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 3,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "c22ba9a2-22f6-4356-aa64-f352a1cb73a1"
+    },
+    {
+      "file": "004_NELNETINC_04_08_2020-EX-1-JOINT_FILING_AGREEMENT.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_title": {
+          "value_text": "JOINT FILING AGREEMENT",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "The undersigned",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "The undersigned",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 3,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "8b1fff14-1ddb-4c54-9a17-9073c365a8d9"
+    },
+    {
+      "file": "005_ADAMSGOLFINC_03_21_2005-EX-10.17-ENDORSEMENT_AGREEMENT.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_title": {
+          "value_text": "ENDORSEMENT AGREEMENT",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "ADAMS GOLF, LTD.",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "TOM WATSON",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 3,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "d255b25f-34df-49de-b6bc-ac52e2a15721"
+    },
+    {
+      "file": "006_KIROMICBIOPHARMA_INC_05_11_2020-EX-10.23-CONSULTING_AGREEMENT.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_title": {
+          "value_text": "CONSULTING AGREEMENT",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "Kiromic, Inc, a Delaware corporation (th",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "Gianluca Rotino (\"Consultant\")",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 3,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "17d5622f-a23c-4c9b-b328-5ba44cc386f8"
+    },
+    {
+      "file": "007_VEONEER_INC_02_21_2020-EX-10.11-JOINT_VENTURE_AGREEMENT.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_title": {
+          "value_text": "AMENDMENT AND TERMINATION OF JOINT VENTU",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "Veoneer AB, a Swedish corporation (\"Veon",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "Nissin Kogyo Co., Ltd., a Japanese corpo",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 3,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "1731e921-970d-4ee4-abf4-5702f4829431"
+    },
+    {
+      "file": "008_DovaPharmaceuticalsInc_20181108_10-Q_EX-10.2_11414857_EX-10.2_Promotion_Agreemen.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_title": {
+          "value_text": "CO-PROMOTION AGREEMENT",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "DOVA PHARMACEUTICALS, INC.",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "VALEANT PHARMACEUTICALS NORTH AMERICA LL",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 3,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "9d954124-91db-44c9-b1f4-8ee5029ca3fd"
+    },
+    {
+      "file": "009_PACIRA_PHARMACEUTICALS_INC._-_A_R_STRATEGIC_LICENSING_DISTRIBUTION_AND_MARKETING.txt",
+      "allow_llm": true,
+      "llm_calls": null,
+      "fields": {
+        "contract_title": {
+          "value_text": "AMENDED AND RESTATED STRATEGIC LICENSING",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_a": {
+          "value_text": "PACIRA PHARMACEUTICALS, INC. (F/K/A SKYE",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        },
+        "party_b": {
+          "value_text": "EKR THERAPEUTICS, INC.",
+          "value_number": null,
+          "value_date": null,
+          "source": "llm"
+        }
+      },
+      "field_count": 3,
+      "findings": [],
+      "summary": {
+        "total": 0,
+        "by_severity": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_checker": {}
+      },
+      "doc_id": "c05d65b2-253f-4f90-a132-f0c6e1dea155"
+    }
+  ],
+  "cross_doc": {
+    "group": [
+      "290b9d66-d6bc-4b9d-9664-8d5fedc32546.txt",
+      "9813769f-1a94-4c63-9aa4-d9b0afbf0cee.txt",
+      "b76c15c3-57f3-4699-80c4-4591250db679.txt",
+      "e4eb10e9-e1c4-4f57-9a62-40d951a03c54.txt"
+    ],
+    "fields_by_doc": {
+      "day25_group_290b9d66-d6bc-4b9d-9664-8d5fedc32546.txt": {
+        "contract_no": "HT-2026-04839060",
+        "project_no": "DDYJ-2026-1901574",
+        "contract_title": "东莞市技师学院互联网接入服务电子卖场合同",
+        "project_name": "东莞市技师学院互联网接入服务定点采购",
+        "party_a": "东莞市技师学院",
+        "party_b": "中国联合网络通信有限公司东莞市分公司",
+        "unit_price": "220800.00",
+        "quantity": "1.00",
+        "total_amount": "22.080000",
+        "sign_date": "2026-09-29",
+        "announce_date": "2026-10-08"
+      },
+      "day25_group_9813769f-1a94-4c63-9aa4-d9b0afbf0cee.txt": {
+        "contract_no": "HT-2026-04761189",
+        "project_no": "DDYJ-2026-1859121",
+        "contract_title": "始兴县明德中学修缮工程电子卖场合同",
+        "project_name": "始兴县明德中学修缮工程定点采购",
+        "party_a": "始兴县明德中学",
+        "party_b": "始兴县志源建筑工程有限公司",
+        "unit_price": "168926.00",
+        "quantity": "1.00",
+        "total_amount": "19.431451",
+        "sign_date": "2026-07-09",
+        "announce_date": "2026-10-08"
+      },
+      "day25_group_b76c15c3-57f3-4699-80c4-4591250db679.txt": {
+        "contract_no": "HT-2026-04873458",
+        "project_no": "DDYJ-2026-1938958",
+        "contract_title": "肇庆高新技术产业开发区社区卫生与计生服务中心印刷服务电子卖场",
+        "project_name": "肇庆高新技术产业开发区社区卫生与计生服务中心印刷服务定点采购",
+        "party_a": "肇庆高新技术产业开发区社区卫生与计生服务中心",
+        "party_b": "肇庆市敏捷图文快印有限公司",
+        "unit_price": "9900.00",
+        "quantity": "1.00",
+        "total_amount": "0.990000",
+        "sign_date": "2026-10-08",
+        "announce_date": "2026-10-08"
+      },
+      "day25_group_e4eb10e9-e1c4-4f57-9a62-40d951a03c54.txt": {
+        "contract_no": "FHZB-2026009",
+        "project_no": "FHZB-2026009",
+        "contract_title": "铜川市新区2026-2027学年义务教育阶段营养餐食材采购项",
+        "project_name": "铜川市新区2026-2027学年义务教育阶段营养餐食材采购项",
+        "party_a": "铜川市教育局新区分局",
+        "party_b": "陕西马咀优选生鲜供应链有限责任公司",
+        "unit_price": "1085000.0000",
+        "quantity": "1.0000",
+        "total_amount": "108.500000",
+        "sign_date": "2026-08-21",
+        "announce_date": "2026-10-08"
+      }
+    },
+    "findings": [
+      {
+        "rule_id": "party_a_consistent",
+        "severity": "error",
+        "message": "甲方不一致：本文件「东莞市技师学院」≠ 对端文件「始兴县明德中学」",
+        "related": true
+      },
+      {
+        "rule_id": "party_b_consistent",
+        "severity": "error",
+        "message": "乙方不一致：本文件「中国联合网络通信有限公司东莞市分公司」≠ 对端文件「始兴县志源建筑工程有限公司」",
+        "related": true
+      },
+      {
+        "rule_id": "total_amount_consistent",
+        "severity": "warning",
+        "message": "合同金额不一致：本文件 220,800.00 元 ≠ 对端文件 194,314.51 元（差异 26,485.49 元）",
+        "related": true
+      },
+      {
+        "rule_id": "sign_date_sequence",
+        "severity": "warning",
+        "message": "后序文档签订日期 2026-07-09 早于首份文档 2026-09-29，时序异常",
+        "related": true
+      },
+      {
+        "rule_id": "party_a_consistent",
+        "severity": "error",
+        "message": "甲方不一致：本文件「东莞市技师学院」≠ 对端文件「肇庆高新技术产业开发区社区卫生与计生服务中心」",
+        "related": true
+      },
+      {
+        "rule_id": "party_b_consistent",
+        "severity": "error",
+        "message": "乙方不一致：本文件「中国联合网络通信有限公司东莞市分公司」≠ 对端文件「肇庆市敏捷图文快印有限公司」",
+        "related": true
+      },
+      {
+        "rule_id": "total_amount_consistent",
+        "severity": "warning",
+        "message": "合同金额不一致：本文件 220,800.00 元 ≠ 对端文件 9,900.00 元（差异 210,900.00 元）",
+        "related": true
+      },
+      {
+        "rule_id": "party_a_consistent",
+        "severity": "error",
+        "message": "甲方不一致：本文件「东莞市技师学院」≠ 对端文件「铜川市教育局新区分局」",
+        "related": true
+      },
+      {
+        "rule_id": "party_b_consistent",
+        "severity": "error",
+        "message": "乙方不一致：本文件「中国联合网络通信有限公司东莞市分公司」≠ 对端文件「陕西马咀优选生鲜供应链有限责任公司」",
+        "related": true
+      },
+      {
+        "rule_id": "total_amount_consistent",
+        "severity": "warning",
+        "message": "合同金额不一致：本文件 220,800.00 元 ≠ 对端文件 1,085,000.00 元（差异 864,200.00 元）",
+        "related": true
+      },
+      {
+        "rule_id": "sign_date_sequence",
+        "severity": "warning",
+        "message": "后序文档签订日期 2026-08-21 早于首份文档 2026-09-29，时序异常",
+        "related": true
+      },
+      {
+        "rule_id": "party_a_consistent",
+        "severity": "error",
+        "message": "甲方不一致：本文件「始兴县明德中学」≠ 对端文件「肇庆高新技术产业开发区社区卫生与计生服务中心」",
+        "related": true
+      },
+      {
+        "rule_id": "party_b_consistent",
+        "severity": "error",
+        "message": "乙方不一致：本文件「始兴县志源建筑工程有限公司」≠ 对端文件「肇庆市敏捷图文快印有限公司」",
+        "related": true
+      },
+      {
+        "rule_id": "total_amount_consistent",
+        "severity": "warning",
+        "message": "合同金额不一致：本文件 194,314.51 元 ≠ 对端文件 9,900.00 元（差异 184,414.51 元）",
+        "related": true
+      },
+      {
+        "rule_id": "party_a_consistent",
+        "severity": "error",
+        "message": "甲方不一致：本文件「始兴县明德中学」≠ 对端文件「铜川市教育局新区分局」",
+        "related": true
+      },
+      {
+        "rule_id": "party_b_consistent",
+        "severity": "error",
+        "message": "乙方不一致：本文件「始兴县志源建筑工程有限公司」≠ 对端文件「陕西马咀优选生鲜供应链有限责任公司」",
+        "related": true
+      },
+      {
+        "rule_id": "total_amount_consistent",
+        "severity": "warning",
+        "message": "合同金额不一致：本文件 194,314.51 元 ≠ 对端文件 1,085,000.00 元（差异 890,685.49 元）",
+        "related": true
+      },
+      {
+        "rule_id": "party_a_consistent",
+        "severity": "error",
+        "message": "甲方不一致：本文件「肇庆高新技术产业开发区社区卫生与计生服务中心」≠ 对端文件「铜川市教育局新区分局」",
+        "related": true
+      },
+      {
+        "rule_id": "party_b_consistent",
+        "severity": "error",
+        "message": "乙方不一致：本文件「肇庆市敏捷图文快印有限公司」≠ 对端文件「陕西马咀优选生鲜供应链有限责任公司」",
+        "related": true
+      },
+      {
+        "rule_id": "total_amount_consistent",
+        "severity": "warning",
+        "message": "合同金额不一致：本文件 9,900.00 元 ≠ 对端文件 1,085,000.00 元（差异 1,075,100.00 元）",
+        "related": true
+      },
+      {
+        "rule_id": "sign_date_sequence",
+        "severity": "warning",
+        "message": "后序文档签订日期 2026-08-21 早于首份文档 2026-10-08，时序异常",
+        "related": true
+      }
+    ],
+    "summary": {
+      "total": 21,
+      "by_severity": {
+        "error": 12,
+        "warning": 9,
+        "info": 0
+      },
+      "by_checker": {
+        "cross_doc": 21
+      }
+    }
+  }
+}
