@@ -44,8 +44,8 @@
             >
               <div class="bubble">
                 <div v-if="m.layer" class="layer-tag">{{ layerLabel(m.layer) }}</div>
-                <div class="msg-text">{{ m.content }}</div>
-                <div v-if="m.streaming" class="stream-dot">▍</div>
+                <div class="msg-text">{{ m.display }}</div>
+                <div v-if="m.streaming || m.pending" class="stream-dot">▍</div>
               </div>
             </div>
           </div>
@@ -80,6 +80,8 @@ interface UIMessage {
   localKey: number
   role: 'user' | 'assistant'
   content: string
+  display: string      // 已渲染文本（打字机逐步增长）
+  pending: string      // 待渲染文本
   streaming?: boolean
   layer?: string
 }
@@ -121,10 +123,46 @@ function scrollBottom() {
 
 function pushMessage(role: 'user' | 'assistant', content: string,
                      streaming = false, layer?: string): UIMessage {
-  const msg: UIMessage = { localKey: localSeq++, role, content, streaming, layer }
+  const msg: UIMessage = {
+    localKey: localSeq++, role, content,
+    display: streaming ? '' : content,
+    pending: streaming ? '' : '',
+    streaming, layer,
+  }
   chatMessages.value.push(msg)
   scrollBottom()
   return msg
+}
+
+// ---- 打字机渲染：每 16ms 从待渲染队列移入 2 字符 ----
+let typer: number | undefined
+
+function startTyper() {
+  if (typer !== undefined) return
+  typer = window.setInterval(() => {
+    let active = false
+    for (const m of chatMessages.value) {
+      if (m.pending) {
+        if (m.streaming) {
+          m.display += m.pending.slice(0, 2)
+          m.pending = m.pending.slice(2)
+        } else {
+          m.display += m.pending
+          m.pending = ''
+        }
+        active = true
+      }
+    }
+    if (active) scrollBottom()
+    else { clearInterval(typer); typer = undefined }
+  }, 16)
+}
+
+function flushPending(m: UIMessage) {
+  if (m.pending) {
+    m.display += m.pending
+    m.pending = ''
+  }
 }
 
 async function openDoc(d: DocItem) {
@@ -166,17 +204,20 @@ async function fire(content: string, buttonIntent?: string) {
     await streamChat(
       chatSessionId, content,
       {
-        onDelta: (t) => { reply.content += t; scrollBottom() },
-        onDone: () => { reply.streaming = false },
+        onDelta: (t) => { reply.pending += t; startTyper() },
+        onDone: () => { reply.streaming = false; flushPending(reply) },
         onError: (t) => {
           reply.streaming = false
+          flushPending(reply)
           reply.content = t
+          reply.display = t
         }
       },
       buttonIntent
     )
   } finally {
     reply.streaming = false
+    flushPending(reply)
     chatSending.value = false
   }
 }
