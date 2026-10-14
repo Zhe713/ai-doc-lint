@@ -12,6 +12,9 @@ INTENT_SUGGEST = "suggest_fix"
 INTENT_LOCATE = "locate_finding"
 INTENT_SUMMARY = "summarize"
 
+# “第 N 条”指代：命中时优先按具体某条处理（P1-4 修复：避免被 list 意图吞掉）
+_ORDINAL_PAT = re.compile(r"第\s*[一二三四五六七八九十百\d]+\s*[条个]")
+
 # 顺序即优先级：更具体的意图放前面
 _RULES: list[tuple[str, list[str]]] = [
     (INTENT_SUMMARY, [r"总结", r"概况", r"整体情况", r"总体"]),
@@ -38,5 +41,8 @@ def l1_match(text: str, *, button_intent: str | None = None):
         return None, 0.0
     for intent, patterns in _COMPILED:
         if any(p.search(text) for p in patterns):
+            # “第 N 条 … 有什么问题”等：用户明确指向某一条，走 explain 定位
+            if intent == INTENT_LIST and _ORDINAL_PAT.search(text):
+                return INTENT_EXPLAIN, 0.9
             return intent, 0.9
     return None, 0.0

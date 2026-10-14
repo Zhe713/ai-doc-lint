@@ -6,10 +6,12 @@ import type { SetupStatus, UserInfo } from '@/api/auth'
 
 const ACCESS_KEY = 'aidoc_access_token'
 const REFRESH_KEY = 'aidoc_refresh_token'
+const EXPIRES_KEY = 'aidoc_expires_at'
 
 export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string>(localStorage.getItem(ACCESS_KEY) ?? '')
   const refreshToken = ref<string>(localStorage.getItem(REFRESH_KEY) ?? '')
+  const expiresAt = ref<number>(Number(localStorage.getItem(EXPIRES_KEY)) || 0)
   const user = ref<UserInfo | null>(null)
 
   const needsSetup = ref<boolean | null>(null)
@@ -21,19 +23,23 @@ export const useAuthStore = defineStore('auth', () => {
     () => !!user.value && (user.value.is_superuser || user.value.roles.includes('admin'))
   )
 
-  function setTokens(pair: { access_token: string; refresh_token: string }) {
+  function setTokens(pair: { access_token: string; refresh_token: string; expires_in?: number }) {
     accessToken.value = pair.access_token
     refreshToken.value = pair.refresh_token
+    expiresAt.value = Date.now() + (pair.expires_in ? pair.expires_in * 1000 : 15 * 60 * 1000)
     localStorage.setItem(ACCESS_KEY, pair.access_token)
     localStorage.setItem(REFRESH_KEY, pair.refresh_token)
+    localStorage.setItem(EXPIRES_KEY, String(expiresAt.value))
   }
 
   function clearLocal() {
     accessToken.value = ''
     refreshToken.value = ''
+    expiresAt.value = 0
     user.value = null
     localStorage.removeItem(ACCESS_KEY)
     localStorage.removeItem(REFRESH_KEY)
+    localStorage.removeItem(EXPIRES_KEY)
   }
 
   async function bootstrap(): Promise<SetupStatus> {
@@ -73,6 +79,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** 主动预刷新：access token 剩余有效期不足 thresholdMs 时提前换取新令牌，
+   *  避免"过期瞬间操作才触发 401"。无过期风险时零开销（不发请求）。 */
+  async function refreshIfExpiringSoon(thresholdMs = 2 * 60 * 1000): Promise<boolean> {
+    if (!accessToken.value || !refreshToken.value) return false
+    if (expiresAt.value > 0 && Date.now() < expiresAt.value - thresholdMs) return false
+    const newToken = await tryRefresh()
+    return !!newToken
+  }
+
   async function logout() {
     try {
       if (accessToken.value && refreshToken.value) {
@@ -86,6 +101,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     accessToken,
     refreshToken,
+    expiresAt,
     user,
     needsSetup,
     openRegistration,
@@ -96,6 +112,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     tryRefresh,
+    refreshIfExpiringSoon,
     logout,
     clearLocal,
     setTokens

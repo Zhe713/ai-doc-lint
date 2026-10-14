@@ -17,7 +17,7 @@
           <el-icon><ChatDotRound /></el-icon><span>文档助手</span>
         </el-menu-item>
         <el-menu-item index="/rules">
-          <el-icon><SetUp /></el-icon><span>规则与模板（W3/W6）</span>
+          <el-icon><SetUp /></el-icon><span>规则与模板</span>
         </el-menu-item>
         <el-menu-item index="/search">
           <el-icon><Search /></el-icon><span>语义检索</span>
@@ -34,7 +34,7 @@
 
     <el-container>
       <el-header class="header">
-        <div class="header-title">自托管 AI 文档校验工具</div>
+        <div class="header-title">本地部署的 AI 文档校验工具</div>
         <el-dropdown @command="onCommand">
           <span class="user-area">
             <el-icon><UserFilled /></el-icon>
@@ -59,6 +59,7 @@
 </template>
 
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 
@@ -75,6 +76,33 @@ async function onCommand(command: string) {
     router.push('/login')
   }
 }
+
+// ---- 主动预刷新：登录态常驻时避免"过期瞬间操作才 401" ----
+let refreshTimer: number | null = null
+
+async function maybeRefresh() {
+  await auth.refreshIfExpiringSoon()
+}
+
+function onVisibility() {
+  if (document.visibilityState === 'visible') {
+    maybeRefresh()
+  }
+}
+
+onMounted(() => {
+  // 定时检查：仅当 token 剩余有效期不足 2 分钟时才真正发刷新请求（其余时刻零开销）
+  refreshTimer = window.setInterval(maybeRefresh, 60 * 1000)
+  document.addEventListener('visibilitychange', onVisibility)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer !== null) {
+    window.clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+  document.removeEventListener('visibilitychange', onVisibility)
+})
 </script>
 
 <style scoped>

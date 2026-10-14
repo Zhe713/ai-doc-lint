@@ -1,4 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import { ElMessage } from 'element-plus'
 
 import { useAuthStore } from '@/stores/auth'
 
@@ -58,6 +59,9 @@ client.interceptors.response.use(
         if (!newToken) {
           onRefreshed(null)
           auth.clearLocal()
+          ElMessage.error('登录已过期，请重新登录')
+          const redirect = encodeURIComponent(window.location.pathname + window.location.search)
+          window.location.href = `/login?redirect=${redirect}`
           return Promise.reject(error)
         }
         onRefreshed(newToken)

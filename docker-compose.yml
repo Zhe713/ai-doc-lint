@@ -60,6 +60,11 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # 容器以 appuser(10001) 运行，模型缓存不能落在 /root（权限 700）；
+      # 统一迁到 appuser 家目录，modelcache 卷内容（bge-small-zh-v1.5）直接可见
+      - HOME=/home/appuser
+      - MODEL_CACHE_DIR=/home/appuser/.cache
     depends_on:
       db:
         condition: service_healthy
@@ -68,8 +73,8 @@ services:
       storage:
         condition: service_healthy
     volumes:
-      - modelcache:/root/.cache
-      - modelcache:/root/.pycorrector
+      - modelcache:/home/appuser/.cache
+      - modelcache:/home/appuser/.pycorrector
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
       interval: 10s
@@ -87,6 +92,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      - HOME=/home/appuser
+      - MODEL_CACHE_DIR=/home/appuser/.cache
     entrypoint: ["celery"]
     command:
       - "-A"
@@ -112,8 +120,8 @@ services:
       api:
         condition: service_healthy
     volumes:
-      - modelcache:/root/.cache
-      - modelcache:/root/.pycorrector
+      - modelcache:/home/appuser/.cache
+      - modelcache:/home/appuser/.pycorrector
     networks:
       - aidocnet
 
@@ -125,6 +133,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      - HOME=/home/appuser
+      - MODEL_CACHE_DIR=/home/appuser/.cache
     entrypoint: ["celery"]
     command:
       - "-A"

@@ -21,18 +21,33 @@ _MODEL_LOCK = False
 
 
 def _download_model(repo_dir: str) -> str:
-    """ModelScope 下载模型到 repo_dir（返回真实模型快照路径）。"""
+    """ModelScope 下载模型到 repo_dir（返回真实模型快照路径）。
+
+    快照路径写入 repo_dir/.snapshot_path：snapshot_download 的落盘结构是
+    <cache_dir>/models/<repo>/snapshots/<rev>，根目录没有 config.json，
+    若不记录真实路径，每次进程重启都会重新下载。
+    """
     from modelscope import snapshot_download
 
     os.makedirs(repo_dir, exist_ok=True)
     lock_path = os.path.join(repo_dir, ".download.lock")
+    marker = os.path.join(repo_dir, ".snapshot_path")
     with open(lock_path, "w") as lf:
         fcntl.flock(lf, fcntl.LOCK_EX)
         try:
-            if not os.path.exists(os.path.join(repo_dir, "config.json")):
-                path = snapshot_download(MODEL_REPO, cache_dir=repo_dir)
-                return path
-            return repo_dir
+            if os.path.exists(marker):
+                p = open(marker, encoding="utf-8").read().strip()
+                if os.path.exists(os.path.join(p, "config.json")):
+                    return p
+            if os.path.exists(os.path.join(repo_dir, "config.json")):
+                return repo_dir
+            path = snapshot_download(MODEL_REPO, cache_dir=repo_dir)
+            try:
+                with open(marker, "w", encoding="utf-8") as f:
+                    f.write(path)
+            except OSError:
+                pass
+            return path
         finally:
             fcntl.flock(lf, fcntl.LOCK_UN)
 
@@ -49,11 +64,19 @@ def get_model():
     try:
         cache_root = os.environ.get("MODEL_CACHE_DIR", "/root/.cache")
         repo_dir = os.path.join(cache_root, "bge-small-zh-v1.5")
-        if not os.path.exists(os.path.join(repo_dir, "config.json")):
-            log.info("downloading embedding model from ModelScope: %s", MODEL_REPO)
-            model_dir = _download_model(repo_dir)
-        else:
+        marker = os.path.join(repo_dir, ".snapshot_path")
+        model_dir: str | None = None
+        if os.path.exists(marker):
+            p = open(marker, encoding="utf-8").read().strip()
+            if os.path.exists(os.path.join(p, "config.json")):
+                model_dir = p
+        if model_dir is None and os.path.exists(
+                os.path.join(repo_dir, "config.json")):
             model_dir = repo_dir
+        if model_dir is None:
+            log.info("downloading embedding model from ModelScope: %s",
+                     MODEL_REPO)
+            model_dir = _download_model(repo_dir)
         from sentence_transformers import SentenceTransformer
 
         _MODEL = SentenceTransformer(model_dir)
