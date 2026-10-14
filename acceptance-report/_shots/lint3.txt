@@ -1,0 +1,237 @@
+﻿{
+  "src": "D:\\projects\\ai-doc-lint\\acceptance-report\\ai-doc-lint-验收报告.html",
+  "url": "file:///D:/projects/ai-doc-lint/acceptance-report/ai-doc-lint-%E9%AA%8C%E6%94%B6%E6%8A%A5%E5%91%8A.html",
+  "outdir": "D:\\projects\\ai-doc-lint\\acceptance-report\\_shots",
+  "include": [
+    "lint",
+    "screenshots",
+    "structure"
+  ],
+  "shots": {
+    "desktop": {
+      "screenshot": "D:\\projects\\ai-doc-lint\\acceptance-report\\_shots\\ai-doc-lint-验收报告_desktop.jpg",
+      "screenshotBytes": 320041,
+      "truncated": false,
+      "structure": {
+        "title": "ai-doc-lint 功能验收报告（L0-L4）",
+        "firstH1": "ai-doc-lint 功能验收报告",
+        "viewport": {
+          "w": 1410,
+          "h": 758
+        },
+        "fullpage": {
+          "w": 1410,
+          "h": 4973
+        },
+        "counts": {
+          "section": 9,
+          "h1": 1,
+          "h2": 9,
+          "img": 0,
+          "canvas": 3,
+          "svg": 0,
+          "links": 0,
+          "buttons": 0
+        }
+      },
+      "consoleErrors": [],
+      "consoleWarnings": [],
+      "horizontalOverflow": [],
+      "resourceErrors": [],
+      "overlappingText": [
+        {
+          "a": {
+            "tag": "div",
+            "text": "P0=0 · 核心链路功能可用率 100%",
+            "rect": [
+              1010,
+              113,
+              208,
+              20
+            ]
+          },
+          "b": {
+            "tag": "h1",
+            "text": "ai-doc-lint 功能验收报告",
+            "rect": [
+              179,
+              113,
+              864,
+              50
+            ]
+          },
+          "intersectPx": 642,
+          "coverRatio": 0.16
+        }
+      ],
+      "overlappingTextHint": "含义：两个含文字的元素 bounding rect 有交集。典型 case：绝对定位徽章/浮层压到内容文字上、卡片尺寸没对齐。coverRatio 是交集面积占较小元素面积的比例，越大越可疑。 | 修法：调整定位、给徽章预留空间、或缩小重叠元素之一。 | 豁免：(1) 故意的视觉层叠（如卡片右上角小 badge 落在卡片 padding 空隙里没盖文字），可对着截图确认后忽略；(2) coverRatio < 0.1 且截图看不出问题的，多半是亚像素抖动。",
+      "clippedText": [
+        {
+          "tag": "div",
+          "text": "FUNCTIONAL ACCEPTANCE · L0–L4\n    ai-doc-lint 功能验收报告\n    自托管",
+          "rect": [
+            137,
+            32,
+            1136,
+            273
+          ],
+          "clippedX": 60,
+          "clippedY": 0
+        }
+      ],
+      "clippedTextHint": "含义：overflow:hidden|clip 的容器把内部文本裁掉了。clippedX/Y 是被吃掉多少 px。已自动排除 text-overflow:ellipsis 单行截断和 -webkit-line-clamp 多行截断（这两个是设计意图）。 | 修法：把容器 height 改成 min-height、或允许内容溢出、或缩短文案。 | 豁免：(1) 5-20px 小值可能是行高/边距计算的边界抖动、动画过程中的瞬时状态；(2) 故意的 marquee/scroll 容器（虽然 overflow:hidden 但依赖 JS 滚动）。",
+      "reportSource": "cdp"
+    },
+    "mobile": {
+      "screenshot": "D:\\projects\\ai-doc-lint\\acceptance-report\\_shots\\ai-doc-lint-验收报告_mobile.jpg",
+      "screenshotBytes": 523084,
+      "slices": [
+        "D:\\projects\\ai-doc-lint\\acceptance-report\\_shots\\ai-doc-lint-验收报告_mobile_p1of3.jpg",
+        "D:\\projects\\ai-doc-lint\\acceptance-report\\_shots\\ai-doc-lint-验收报告_mobile_p2of3.jpg",
+        "D:\\projects\\ai-doc-lint\\acceptance-report\\_shots\\ai-doc-lint-验收报告_mobile_p3of3.jpg"
+      ],
+      "sliceHint": "主图过阈值（字节>800KB 或 高度>4000px），已按 3200px 切片。若主图 Read 失败，改读 slices 里各分片。",
+      "truncated": false,
+      "structure": {
+        "title": "ai-doc-lint 功能验收报告（L0-L4）",
+        "firstH1": "ai-doc-lint 功能验收报告",
+        "viewport": {
+          "w": 492,
+          "h": 702
+        },
+        "fullpage": {
+          "w": 492,
+          "h": 9366
+        },
+        "counts": {
+          "section": 9,
+          "h1": 1,
+          "h2": 9,
+          "img": 0,
+          "canvas": 3,
+          "svg": 0,
+          "links": 0,
+          "buttons": 0
+        }
+      },
+      "consoleErrors": [],
+      "consoleWarnings": [],
+      "horizontalOverflow": [],
+      "resourceErrors": [],
+      "clippedText": [
+        {
+          "tag": "div",
+          "text": "FUNCTIONAL ACCEPTANCE · L0–L4\n    ai-doc-lint 功能验收报告\n    自托管",
+          "rect": [
+            22,
+            32,
+            448,
+            427
+          ],
+          "clippedX": 60,
+          "clippedY": 0
+        }
+      ],
+      "clippedTextHint": "含义：overflow:hidden|clip 的容器把内部文本裁掉了。clippedX/Y 是被吃掉多少 px。已自动排除 text-overflow:ellipsis 单行截断和 -webkit-line-clamp 多行截断（这两个是设计意图）。 | 修法：把容器 height 改成 min-height、或允许内容溢出、或缩短文案。 | 豁免：(1) 5-20px 小值可能是行高/边距计算的边界抖动、动画过程中的瞬时状态；(2) 故意的 marquee/scroll 容器（虽然 overflow:hidden 但依赖 JS 滚动）。",
+      "mobileFontIssuesWarning": [
+        {
+          "kind": "small-body-text",
+          "tag": "span",
+          "fontSize": 13,
+          "text": "FUNCTIONAL ACCEPTANCE · L0–L4"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "div",
+          "fontSize": 12,
+          "text": "P0=0 · 核心链路功能可用率 100%"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "span",
+          "fontSize": 13,
+          "text": "验收对象：ai-doc-lint（demo 基线）"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "span",
+          "fontSize": 13,
+          "text": "Golden 集：40 份网络公开真实合同（禁止自造）"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "span",
+          "fontSize": 13,
+          "text": "验收日期：2026-10-12"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "span",
+          "fontSize": 13,
+          "text": "判定标准：P0=0 且核心链路通过率 ≥90%"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "span",
+          "fontSize": 13,
+          "text": "OVERVIEW"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "div",
+          "fontSize": 13,
+          "text": "Golden 全部解析成功"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "div",
+          "fontSize": 13,
+          "text": "parsed 40 · failed 0"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "div",
+          "fontSize": 13,
+          "text": "L1 发现问题"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "div",
+          "fontSize": 13,
+          "text": "warning 7 · info 7"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "div",
+          "fontSize": 13,
+          "text": "P0 缺陷"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "div",
+          "fontSize": 13,
+          "text": "无阻断性缺陷"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "div",
+          "fontSize": 13,
+          "text": "核心用户旅程可用"
+        },
+        {
+          "kind": "small-body-text",
+          "tag": "div",
+          "fontSize": 13,
+          "text": "登录→上传→报告→批注→助手→检索"
+        }
+      ],
+      "mobileFontIssuesHint": "warning · 含义（仅 mobile shot 触发）：两类问题合并——(a) kind=small-body-text：正文字号 < 14px，手机上难读；(b) kind=input-under-16px：<input> / <textarea> font-size < 16px，iOS Safari 聚焦时会自动缩放页面（那种一点输入框页面跳一下的贼恶心 UX）。 | 修法：正文 ≥ 14px（16px 更佳）；表单元素 ≥ 16px。可以在移动断点里针对性调大：`@media (max-width: 640px) { body { font-size: 16px; } input, textarea { font-size: 16px; } }`。 | 豁免：(1) 图例 / caption / footnote 类辅助文字，12–13px 可接受，但应控制在页面 5% 以内；(2) 数据密集型表格数字（如财务表 12px 是行业惯例）——需要该单元格开 `tnum` 等宽数字避免飘忽；(3) input 已设 `font-size: 16px` 但仍报出——可能是 inline style / 父级 rem 计算异常，检查实际 computed 值。",
+      "reportSource": "cdp"
+    }
+  },
+  "engine": "chrome_cli",
+  "chromiumExec": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "engineDegraded": true,
+  "engineDegradedReason": "playwright 未装",
+  "elapsedSec": 14.41
+}

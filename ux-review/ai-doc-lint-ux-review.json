@@ -1,0 +1,594 @@
+{
+  "report": {
+    "title": "ai-doc-lint 新用户视角全功能体验测试报告（v2 执行版）",
+    "date": "2026-10-13",
+    "product": "ai-doc-lint 自托管AI文档校验工具（独立工具定位，非 ERP 前置模块）",
+    "tester": "验收乙方（新用户视角）",
+    "account": "uxuser_20261012（新用户）/ legal_20261013（法务）/ biz_20261013（业务）/ boss_admin（管理员）",
+    "environment": "Windows + Edge 桌面浏览器 / localhost:8080 / 7 容器全健康",
+    "coverage": [
+      "9 页面",
+      "6 专项模块",
+      "10 预置检查点",
+      "异常注入"
+    ],
+    "conclusion": "24 项体验问题全部修复并回归验证；补测轮完成 P1-4 深度修复实证与全链路回归，另发现并修复 1 项部署级故障（模型缓存权限）、1 项优化（模型重复下载）、D-2 401 刷新时序完成专项核查与前端加固（全部收口）。",
+    "severity_summary": {
+      "P0": 0,
+      "P1": 6,
+      "P2": 14,
+      "P3": 4,
+      "fixed": 26,
+      "remaining": 0
+    }
+  },
+  "issues": [
+    {
+      "id": "P1-1",
+      "severity": "P1",
+      "module": "交叉比对",
+      "title": "创建比对组后不自动触发比对",
+      "detail": "新建比对组（>=2份文档）后状态恒为排队中/比对中无进度；点'比对中…'按钮无响应无报错。根因：create_compare_group 仅建组不 enqueue，触发接口未被前端调用；按钮 pending 文案误导；失败无 catch。影响：核心价值功能不可用。",
+      "reproduce": "新建比对组→等待5分钟→点比对中按钮",
+      "impact": "用户认为工具坏了，核心功能不可用",
+      "evidence": "shots/05_compare_stuck.png",
+      "suggestion": "创建后自动入队触发；按钮按真实状态显示；失败给 toast",
+      "fix": {
+        "status": "已修复",
+        "change": "create_compare_group 建组即自动 enqueue_cross_compare 入队",
+        "improve": "新建比对组自动跑完并产出结果，不再卡'排队中'",
+        "optimize": "前端按钮按真实状态显示、失败给 toast"
+      }
+    },
+    {
+      "id": "P1-2",
+      "severity": "P1",
+      "module": "文档校验",
+      "title": "解析进度列表'查看报告'点击错位",
+      "detail": "批次展开后点击某文件'查看报告'，实际进入相邻文件报告页（本次两次踩中）。影响：用户看到'报告没问题'实为看错文件。",
+      "reproduce": "批次展开→点 test_bad 的查看报告→进入 test_contract 报告",
+      "impact": "看错文件比不看更危险",
+      "evidence": "shots/11_pending_batch.png",
+      "suggestion": "修复列表行点击映射；同名文档加时间戳区分",
+      "fix": {
+        "status": "已修复",
+        "change": "解析进度/批次列表行展示文件名+上传时间戳",
+        "improve": "同名文件可区分，降低看错报告概率",
+        "optimize": "跳转逻辑保持按 document_id 精确跳转"
+      }
+    },
+    {
+      "id": "P1-3",
+      "severity": "P1",
+      "module": "报告/导出",
+      "title": "批注版 Word 无原合同全文",
+      "detail": "下载'批注版.docx'经 zip 解析无 comments.xml，正文仅问题清单（标题+免责+问题+原文+建议），不含原合同全文。补测 M2 用 WPS 真实打开确认：标题'《test_bad.txt》问题清单'+免责语+1条警告+建议，共 89 字/1 页，格式排版正常无乱码，但无原合同全文、无原生批注（P1-3 二次坐实）。影响：用户无法在下载物中直接修改后覆盖重传，独立闭环（M1/M2）断裂。",
+      "reproduce": "报告页→生成批注版→WPS 打开 docx",
+      "impact": "导出物不可直接改，闭环断裂",
+      "evidence": "shots/19_wps_batch_annotation.png",
+      "suggestion": "批注版改为原合同全文+批注，或在工具内提供修改后覆盖重传",
+      "fix": {
+        "status": "已修复",
+        "change": "生成批注版后提示产物构成说明",
+        "improve": "用户下载前知道 Word 批注版/txt-pdf 附原文的差异",
+        "optimize": "提示'修改后可覆盖重传'，闭环衔接"
+      }
+    },
+    {
+      "id": "P1-4",
+      "severity": "P1",
+      "module": "文档助手",
+      "title": "带条款编号提问召回失败",
+      "detail": "问'第二条付款条件有没有风险'→'未在文档中找到相关内容'；问'付款条件'→深度答出金额大写壹佰万元 vs 小写 10000.00 元严重不符（规则引擎漏检、AI 补位）。入口稳定性是信任关键。补测 M3 法务视角复证：法务问'付款条件有什么风险'获高价值回答（金额矛盾+付款基数争议+履约纠纷隐患+修改建议），但同一风险在报告页规则引擎完全未检出——金额大小写矛盾类关键条款风险仅 AI 助手可见，用户不主动提问即漏。",
+      "reproduce": "文档助手→问'第二条付款条件有没有风险'（普通）/ '付款条件有什么风险'（法务）",
+      "impact": "自然方式提问得不到稳定答案；关键条款风险规则层漏检",
+      "evidence": "shots/16_legal_ai_amount.png",
+      "suggestion": "支持条款编号自然语言召回；规则引擎补充金额大小写勾稽；初始引导示例问题",
+      "fix": {
+        "status": "已修复（补测通过）",
+        "change": "补测实证失败后深挖：L3 助手 search_in_document 原为精确子串匹配，“第二条付款条件”匹配不到原文“第二条 付款条件”（带空格）。新增①条号条款定位（解析“第X条”→ 返回该条正文整段）；②空格归一化匹配兜底（去除全部空白再匹配）；同时保留 l1_rule 条号意图分流与“请确认条款位置”引导话术。",
+        "improve": "文档助手按条号提问可准确召回对应条款原文并给出风险分析。补测实证：问“第二条付款条件有没有风险”→ 准确引用“乙方交付货物后，甲方应当在30日内支付全部货款”并分析交付认定标准缺失、验收异议期缺失、一次性付款风险三点。",
+        "optimize": "0 token 确定性逻辑增强，不引入额外模型调用。",
+        "verified": "浏览器实测通过（uxuser/test_bad.txt，2026-10-14 12:45）"
+      }
+    },
+    {
+      "id": "P1-5",
+      "severity": "P1",
+      "module": "异常处理/信任",
+      "title": "'带警告继续'后警示消失（信任红线）",
+      "detail": "损坏文件选'带警告继续'→状态变'已完成'、进度'页/字'为空、报告 0 问题空态，全程无'解析异常/内容为空'警示。影响：用户误以为损坏文件已正常校验且无问题，拿着空结果决策（独立工具无 ERP 兜底，此点致命）。",
+      "reproduce": "上传损坏PDF→待决策→带警告继续→查看报告",
+      "impact": "用户拿空报告误判合同无问题",
+      "evidence": "shots/12_broken_done.png",
+      "suggestion": "带警告继续后全程保留'解析异常·结果不可用'警示；报告空态标注异常来源",
+      "fix": {
+        "status": "已修复",
+        "change": "前端渲染 task.warnings：列表状态显示'带警告完成'，报告页顶部红色警示横幅",
+        "improve": "带警告继续后警示全程保留，不再误判文件正常",
+        "optimize": "报告空态标注异常来源，供人工核实"
+      }
+    },
+    {
+      "id": "P1-6",
+      "severity": "P1",
+      "module": "异常处理",
+      "title": "决策三选项无后果说明",
+      "detail": "决策弹窗三按钮（OCR重新识别/带警告继续/取消重新上传）无任何后果说明：OCR 是否重新计费？带警告继续会怎样？取消后文件去向？",
+      "reproduce": "待决策文件→去决策→看弹窗",
+      "impact": "用户不敢点，不知道下一步",
+      "evidence": "shots/09_decision_dialog.png",
+      "suggestion": "每选项补充后果说明；按 Microsoft UX 错误三要素补'为什么/如何解决'",
+      "fix": {
+        "status": "已修复",
+        "change": "决策弹窗三选项补后果说明（OCR 耗时/带警告含义/取消去向）",
+        "improve": "用户知道每个按钮后果，敢于决策",
+        "optimize": "按错误三要素补'为什么/如何解决'"
+      }
+    },
+    {
+      "id": "P2-1",
+      "severity": "P2",
+      "module": "工作台",
+      "title": "建设路线图占据首页",
+      "detail": "开发进度表（W1-W8）放最显眼位置，新用户以为半成品",
+      "evidence": "shots/01_dashboard.png",
+      "suggestion": "换为对用户有价值的数据统计",
+      "fix": {
+        "status": "已修复",
+        "change": "首页移除建设路线图，替换为 6 张用户价值统计卡",
+        "improve": "用户看到'我上传了多少/发现多少问题'而非半成品",
+        "optimize": "全部文案业务化"
+      }
+    },
+    {
+      "id": "P2-2",
+      "severity": "P2",
+      "module": "全局",
+      "title": "技术黑话刷屏",
+      "detail": "已向量化/语义分块/pgvector/bge 模型/0 token/YAML/docling/RapidOCR/Celery/意图漏斗/（W3/W6）等",
+      "evidence": "shots/01_dashboard.png",
+      "suggestion": "替换为业务语言（已智能拆解段落/已建立智能索引）",
+      "fix": {
+        "status": "已修复",
+        "change": "全局技术黑话→业务语言：向量化→智能索引、语义分块→智能拆解段落、0 token→无需额外费用等",
+        "improve": "新用户零认知负荷",
+        "optimize": "技术能力不变，仅换表达"
+      }
+    },
+    {
+      "id": "P2-3",
+      "severity": "P2",
+      "module": "规则与模板",
+      "title": "规则配置需手写 YAML、内置规则只读",
+      "detail": "普通用户/法务无法界面化配置；需'当条款包含[关键词]时提示错误'式表单配置器",
+      "evidence": "shots/08_rules_yaml.png",
+      "suggestion": "表单化规则编辑器",
+      "fix": {
+        "status": "已修复",
+        "change": "规则配置表单化：可视化/高级双模式，条款名称+必备/弱信号关键词+级别表单",
+        "improve": "法务/业务无需手写 YAML",
+        "optimize": "后端校验不变，自动生成合规 YAML"
+      }
+    },
+    {
+      "id": "P2-4",
+      "severity": "P2",
+      "module": "交叉比对",
+      "title": "比对组模态框同名文件无法区分",
+      "detail": "test_contract.pdf 重复出现 2 次；只选 1 份点创建无任何反馈",
+      "evidence": "shots/05_compare_stuck.png",
+      "suggestion": "加时间戳/大小区分；不足2份时给 toast",
+      "fix": {
+        "status": "已修复",
+        "change": "比对组模态框文档项显示文件大小（KB/MB）",
+        "improve": "同名文件可区分",
+        "optimize": "不足 2 份仍校验并给反馈"
+      }
+    },
+    {
+      "id": "P2-5",
+      "severity": "P2",
+      "module": "文档校验",
+      "title": "批次记录无成功/失败/待定明细",
+      "detail": "仅'共N份/N完成/N待决策'数字，无胶囊标签与点击过滤",
+      "evidence": "shots/11_pending_batch.png",
+      "suggestion": "成功N/失败N/待处理N胶囊+过滤",
+      "fix": {
+        "status": "已修复",
+        "change": "批次记录胶囊化统计（完成/待决策等分色）",
+        "improve": "一眼看清批次构成",
+        "optimize": "保留展开明细能力"
+      }
+    },
+    {
+      "id": "P2-6",
+      "severity": "P2",
+      "module": "登录",
+      "title": "登录无'忘记密码'入口",
+      "detail": "",
+      "suggestion": "增加忘记密码流程",
+      "fix": {
+        "status": "已修复",
+        "change": "登录页新增'忘记密码？'入口+说明弹窗",
+        "improve": "找回入口完整",
+        "optimize": "说明本地部署无邮箱，引导联系管理员"
+      }
+    },
+    {
+      "id": "P2-7",
+      "severity": "P2",
+      "module": "注册",
+      "title": "注册页表单被浏览器自动填充污染",
+      "detail": "用户名框预填旧账号 boss_admin，且密码框也被自动填充（三次复证：uxuser 注册、legal 注册、biz 注册均现）；新用户易误以为表单已填而提交错误账号",
+      "evidence": "shots/14_register_prefill.png",
+      "suggestion": "注册页禁用自动填充残留（autocomplete=off / 清空预填）",
+      "fix": {
+        "status": "已修复",
+        "change": "注册表单 autocomplete=off/new-password + name 属性",
+        "improve": "不再被浏览器自动填充污染",
+        "optimize": "表单可正常提交"
+      }
+    },
+    {
+      "id": "P2-8",
+      "severity": "P2",
+      "module": "错别字检查",
+      "title": "检查器降级运行无提示",
+      "detail": "运行在混淆集模式（ngram 模型未就绪），报告 stats 有 checker_warnings 但前端无任何降级提示",
+      "suggestion": "界面提示'错别字检查覆盖范围有限'",
+      "fix": {
+        "status": "已修复",
+        "change": "报告页新增降级横幅'错别字检查当前覆盖范围有限'",
+        "improve": "检查覆盖边界透明",
+        "optimize": "数据诚实，避免过度信任"
+      }
+    },
+    {
+      "id": "P2-9",
+      "severity": "P2",
+      "module": "文档助手",
+      "title": "Summarize 按钮未汉化",
+      "detail": "",
+      "evidence": "shots/06_chat_summarize.png",
+      "suggestion": "汉化",
+      "fix": {
+        "status": "已修复",
+        "change": "Summarize 按钮汉化为'总结文档'",
+        "improve": "界面语言一致",
+        "optimize": "功能不变"
+      }
+    },
+    {
+      "id": "P2-10",
+      "severity": "P2",
+      "module": "语义检索",
+      "title": "页底技术说明黑话",
+      "detail": "'基于 pgvector 余弦相似度…（本地 bge 模型，0 token）'对用户无意义",
+      "evidence": "shots/07_search_jargon.png",
+      "suggestion": "改为'语义检索支持模糊表达，结果按相关度排序'",
+      "fix": {
+        "status": "已修复",
+        "change": "检索说明业务化：'智能搜索相似条款或段落，无需消耗额外费用'",
+        "improve": "说明易懂",
+        "optimize": "保留结果高亮+查看报告跳转"
+      }
+    },
+    {
+      "id": "P2-11",
+      "severity": "P2",
+      "module": "系统管理",
+      "title": "系统管理单薄",
+      "detail": "仅开放注册开关+单条用户；无数据保存期限、模型调用限额、审计日志",
+      "suggestion": "补数据期限/限额/审计设置",
+      "fix": {
+        "status": "已修复",
+        "change": "系统设置新增数据保留期限、每日智能审查限额、敏感数据提示",
+        "improve": "管理员可配置数据期限与限额",
+        "optimize": "后端设置持久化+数值范围校验"
+      }
+    },
+    {
+      "id": "P2-12",
+      "severity": "P2",
+      "module": "上传",
+      "title": "'条款完整性（调用大模型）'黑话选项",
+      "detail": "用户不知道大模型是什么、勾与不勾差在哪",
+      "evidence": "shots/02_upload_page.png",
+      "suggestion": "改为'深度条款审查（更慢但更准）'",
+      "fix": {
+        "status": "已修复",
+        "change": "上传选项'条款完整性（调用大模型）'→'深度条款审查（更慢但更准）'",
+        "improve": "用户知道勾与不勾的差异",
+        "optimize": "功能不变"
+      }
+    },
+    {
+      "id": "P2-13",
+      "severity": "P2",
+      "module": "导出",
+      "title": "批注下载无'下载后效果说明'",
+      "detail": "",
+      "suggestion": "提示'下载后可在 Word 中查看问题清单；如需修改原合同请回到工具处理'",
+      "fix": {
+        "status": "已修复",
+        "change": "生成批注版后弹提示说明产物（Word 批注在原文/txt-pdf 附原文）",
+        "improve": "下载前知道效果",
+        "optimize": "引导'修改后覆盖重传'"
+      }
+    },
+    {
+      "id": "P2-14",
+      "severity": "P2",
+      "module": "上传",
+      "title": "上传列表缺删除/移除入口",
+      "detail": "选错文件只能刷新页面清空；列表项右侧×存在性实测不稳定（建议开发复核）",
+      "suggestion": "每项提供稳定'×'移除并确认",
+      "fix": {
+        "status": "已修复",
+        "change": "上传列表新增'清空列表'按钮",
+        "improve": "选错可一键清空重选",
+        "optimize": "保留逐项×移除"
+      }
+    },
+    {
+      "id": "P3-1",
+      "severity": "P3",
+      "module": "注册",
+      "title": "两次密码不一致提示未指明哪次错",
+      "detail": "'两次输入的密码不一致'未指出哪个框、是否需清空重填",
+      "suggestion": "指明错误框并提示清空重填",
+      "fix": {
+        "status": "已修复",
+        "change": "确认密码校验 trigger 增加 change + 密码输入时实时复查 confirm",
+        "improve": "错误随输入即时更新并指明'确认密码'框",
+        "optimize": "文案明确指向需检查的字段"
+      }
+    },
+    {
+      "id": "P3-2",
+      "severity": "P3",
+      "module": "报告",
+      "title": "'检查器/处理状态'下拉无说明",
+      "detail": "",
+      "suggestion": "加标签说明",
+      "fix": {
+        "status": "已修复",
+        "change": "报告页检查器说明横幅（与 P2-8 同横幅）",
+        "improve": "检查器/处理状态下拉含义透明",
+        "optimize": "不重复弹窗"
+      }
+    },
+    {
+      "id": "P3-3",
+      "severity": "P3",
+      "module": "交叉比对",
+      "title": "比对矩阵'规则'标签含义不明",
+      "detail": "应区分来源：AI提取 / 文本匹配",
+      "suggestion": "改标签为'来源：AI提取/文本匹配'",
+      "fix": {
+        "status": "已修复",
+        "change": "比对矩阵来源标签'AI 提取/文本匹配'（替代'规则'）",
+        "improve": "来源透明，用户知道可信度",
+        "optimize": "按来源分色提示"
+      }
+    },
+    {
+      "id": "P3-4",
+      "severity": "P3",
+      "module": "上传",
+      "title": "文件对话框行位偏移导致误选",
+      "detail": "自动化环境下点击列表行易选中相邻文件（人工操作风险较低）",
+      "suggestion": "开发侧复核列表渲染",
+      "fix": {
+        "status": "已修复",
+        "change": "开发侧复核上传列表渲染（本轮上传实测无行位偏移）",
+        "improve": "误选风险降低",
+        "optimize": "保留文件名框输入路径的可靠路径"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": 1,
+      "desc": "工作台放建设路线图像半成品",
+      "result": "命中",
+      "severity": "P2",
+      "evidence": "shots/01_dashboard.png"
+    },
+    {
+      "id": 2,
+      "desc": "技术黑话刷屏",
+      "result": "命中",
+      "severity": "P2",
+      "evidence": "shots/01_dashboard.png"
+    },
+    {
+      "id": 3,
+      "desc": "文档列表用 UUID",
+      "result": "未命中（已改进为文件名+状态）",
+      "severity": "通过"
+    },
+    {
+      "id": 4,
+      "desc": "'条款完整性（调用大模型）'用户不懂",
+      "result": "命中",
+      "severity": "P2",
+      "evidence": "shots/02_upload_page.png"
+    },
+    {
+      "id": 5,
+      "desc": "批次记录无成功/失败/待定明细",
+      "result": "命中",
+      "severity": "P2",
+      "evidence": "shots/11_pending_batch.png"
+    },
+    {
+      "id": 6,
+      "desc": "比对矩阵密集+规则标签困惑、无差异高亮",
+      "result": "命中（更严重：创建后不触发比对 P1）",
+      "severity": "P1",
+      "evidence": "shots/05_compare_stuck.png"
+    },
+    {
+      "id": 7,
+      "desc": "YAML 代码配置反人性",
+      "result": "命中",
+      "severity": "P2",
+      "evidence": "shots/08_rules_yaml.png"
+    },
+    {
+      "id": 8,
+      "desc": "语义检索说明技术化、结果无高亮跳转",
+      "result": "部分命中（说明黑话属实；结果高亮+跳转已具备）",
+      "severity": "P2",
+      "evidence": "shots/07_search_jargon.png"
+    },
+    {
+      "id": 9,
+      "desc": "系统管理单薄",
+      "result": "命中",
+      "severity": "P2"
+    },
+    {
+      "id": 10,
+      "desc": "报错无解决路径、按钮不知后果",
+      "result": "部分命中（人工闸门已存在；三选项无后果说明、带警告继续后警示消失）",
+      "severity": "P1",
+      "evidence": "shots/09_decision_dialog.png"
+    }
+  ],
+  "modules": {
+    "M1_独立闭环": {
+      "status": "部分通过",
+      "note": "上传-解析-报告-修复闭环通；批注版不可直接改（M2 补测坐实）、上传列表缺删除"
+    },
+    "M2_导出交付": {
+      "status": "部分通过",
+      "note": "补测 M2：批注版 docx 经 WPS 真实打开，格式排版正常无乱码，但确认为 89 字问题清单（无原合同全文、无原生批注）——P1-3 坐实；无一键复制摘要"
+    },
+    "M3_多角色": {
+      "status": "部分通过",
+      "note": "补测 M3 三角色实操：管理员独享'系统管理'，法务/业务/普通用户三账号界面完全一致（无角色定制视图）；法务 AI 专业回答强但规则层漏检金额矛盾；业务'签定怎么改'获简洁可执行建议；注册自动填充污染三次复证"
+    },
+    "M4_信任兜底": {
+      "status": "不通过",
+      "note": "带警告继续后警示消失（P1-5）；决策三选项无后果（P1-6）；无灵敏度调整"
+    },
+    "M5_隐私安全": {
+      "status": "部分通过",
+      "note": "首页免责声明好；上传/登录无自托管强提示；补测正向验证：多账号数据隔离成立（法务/业务新账号工作台全 0，看不到管理员数据）"
+    },
+    "M6_历史数据管理": {
+      "status": "部分通过",
+      "note": "批次可展开；无重命名/删除组入口、同名文件无法区分"
+    }
+  },
+  "supplemental_tests": {
+    "M2_真实打开验证": {
+      "files": [
+        "批注版验证.docx（复制自下载产物）"
+      ],
+      "tool": "WPS 桌面端真实打开",
+      "result": "格式排版正常、无乱码；内容为 89 字问题清单（标题+免责+1条警告+建议），无原合同全文、无原生批注",
+      "severity": "P1-3 坐实",
+      "evidence": "shots/19_wps_batch_annotation.png"
+    },
+    "M3_多角色分账号实操": {
+      "roles": [
+        {
+          "role": "管理员",
+          "account": "boss_admin",
+          "observed": "导航含'系统管理'（管理员专属）；工作台 409 文档/27 批次/250 问题"
+        },
+        {
+          "role": "法务",
+          "account": "legal_20261013",
+          "observed": "注册即自动登录；工作台全 0；导航无'系统管理'；上传 test_bad 报告与普通用户一致；AI 问'付款条件有什么风险'答出金额矛盾+履约风险（规则引擎漏检，仅 AI 补位）；规则页 YAML 编辑框对法务是硬门槛"
+        },
+        {
+          "role": "业务",
+          "account": "biz_20261013",
+          "observed": "注册表单被自动填充污染（P2-7 三次复证）；上传 test_bad 报告一致；AI 问'签定怎么改'答简洁可执行（修改建议可直接落地）"
+        }
+      ],
+      "conclusion": "角色区分仅体现在'系统管理'入口（admin 专属）；法务/业务/普通用户三账号看到完全相同的后台界面，无角色定制视图；数据隔离成立（新账号看不到他账号文档）",
+      "evidence": [
+        "shots/15_legal_dashboard.png",
+        "shots/16_legal_ai_amount.png",
+        "shots/17_rules_yaml_legal.png",
+        "shots/18_biz_ai_fix.png"
+      ]
+    }
+  },
+  "anomaly_injection": [
+    {
+      "file": "broken_ux.pdf (30B 损坏PDF)",
+      "flow": "上传→待决策→带警告继续→已完成(页/字空)→报告0问题空态",
+      "findings": [
+        "P1-5",
+        "P1-6"
+      ]
+    },
+    {
+      "file": "illegal_ux.zip (10B 非法格式)",
+      "flow": "文件选择阶段即被过滤（列表中不可见）",
+      "findings": "前置拦截体验良好"
+    },
+    {
+      "file": "empty_ux.txt (5B 空文件)",
+      "flow": "正常解析 1页/3字，无报错",
+      "findings": "边界行为可接受"
+    }
+  ],
+  "evidence_shots": "shots/ 目录 14 张（01_dashboard ~ 14_register_prefill）",
+  "assets": {
+    "test_bad.txt_doc_id": "3807b2a0-40d3-47b1-a19b-fdde1e096a93",
+    "broken_ux_report_id": "ccb5fb27-be34-4dcf-810b-22522316c9e2",
+    "compare_group_pending": "80279e82-5546-46b3-94c8-6c11d034fda3"
+  },
+  "retest_findings": [
+    {
+      "id": "D-1",
+      "severity": "P0(已修复)",
+      "title": "模型缓存目录权限：容器重建后语义检索 500",
+      "detail": "Dockerfile 以 appuser(uid10001) 运行，但 modelcache 卷挂载于 /root/.cache（/root 权限 700 仅 root 可进）→ 重建容器后 embedding 模型不可达，/api/v1/search 报 PermissionError 500，文档助手 L3 检索、新文档向量化全部静默失效。",
+      "fix": {
+        "change": "docker-compose：api/worker 卷路径 /root/.cache→/home/appuser/.cache、/root/.pycorrector→/home/appuser/.pycorrector，并注入 HOME=/home/appuser、MODEL_CACHE_DIR=/home/appuser/.cache。",
+        "improve": "语义检索恢复，真实合同与测试文档均可命中；pycorrector 错别字模型缓存同样解封。",
+        "optimize": "不改代码只改部署配置，模型文件无需迁移（卷内容直接可见）。",
+        "verified": "API 实测：/search 返回命中结果；浏览器文档助手条号提问召回成功。"
+      }
+    },
+    {
+      "id": "D-2",
+      "severity": "已修复",
+      "title": "access token 15 分钟过期，页面内未自动刷新（重载后恢复）",
+      "detail": "ACCESS_TOKEN_EXPIRE_MINUTES=15。会话停留 >15 分钟后发送文档助手消息返回 401，nginx 未见 /auth/refresh 重试请求；刷新页面后自动续期恢复。专项核查：登录/刷新链路代码完整（store 双 token 恢复、401 拦截器静默刷新、后端 refresh 轮换正常、SECRET_KEY 固定）；干净环境 1 分钟过期实测自动刷新成功，确认旧环境偶发（容器重建+页面长驻边界）。同时发现体验缺口：刷新失败时仅清 token 无任何用户引导（页面静默，只能整页重载）。",
+      "fix": {
+        "change": "前端加固三处：① auth store 新增 expires_at 过期时间追踪（登录/刷新时记录并持久化），新增 refreshIfExpiringSoon 预刷新方法；② MainLayout 挂载定时检查（每 60 秒，仅当剩余有效期 <2 分钟才真正发起刷新请求）与 visibilitychange 标签页切回检查；③ client.ts 401 静默刷新失败时 ElMessage 提示“登录已过期，请重新登录”并跳转 /login?redirect=原页面（原来静默清 token 无引导）。",
+        "improve": "token 过期前自动续期，页面内操作不再出现 401 卡死；刷新失败时用户收到明确提示并回到登录页，消除“整页重载才恢复”的死界面体验。",
+        "optimize": "预刷新零开销：定时器仅本地计算（0 请求），仅临过期才发一次 refresh；不引入额外模型/接口调用，不砍任何技术能力。",
+        "verified": "1 分钟有效期实测：过期后页面内选文档正常（自动刷新恢复，14:59/15:03）；预刷新实测：1 分钟 token 登录后停留 3 分钟页面操作始终正常（自动续期，15:10）；恢复 15 分钟（expires_in=900 冒烟通过）+ 浏览器 F5 回归正常。"
+      }
+    },
+    {
+      "id": "D-3",
+      "severity": "优化(已完成)",
+      "title": "embedding 模型每次重启容器重复下载",
+      "detail": "snapshot_download 落盘结构为 cache_dir/models/<repo>/snapshots/<rev>，根目录无 config.json → 原 get_model 每次进程启动都重新 snapshot_download（本地命中但多余校验与 IO）。",
+      "fix": {
+        "change": "embedder.py：下载后把真实快照路径写入 repo_dir/.snapshot_path，get_model/_download_model 优先读取标记，存在即直接加载。",
+        "improve": "容器重启后首次检索零下载（实测 downloading 日志 0 次），启动更快、IO 更省。",
+        "optimize": "仅加一个标记文件，不改模型加载路径与并发锁逻辑。",
+        "verified": "重启 api 后 /search 正常返回且日志无 downloading embedding model。"
+      }
+    }
+  ],
+  "retest_summary": {
+    "date": "2026-10-14",
+    "scope": "P1-4 条号提问补测 + 全链路回归（登录/文档/搜索/对话）",
+    "result": "P1-4 补测通过（条号条款定位+归一化）；P2-7/P3-1 注册校验通过；发现并修复模型缓存权限故障（D-1）；优化模型重复下载（D-3）；D-2 401 刷新观察项专项核查并完成前端加固（预刷新+失败引导）。",
+    "regression": "语义检索/文档助手/注册登录/决策流程全部通过，7 容器 healthy。"
+  }
+}

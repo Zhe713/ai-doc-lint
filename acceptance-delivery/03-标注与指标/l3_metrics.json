@@ -1,0 +1,72 @@
+{
+  "total_docs": 40,
+  "parsed_docs": 40,
+  "failed_docs": 0,
+  "docs_with_findings": 11,
+  "upload_block_rate": 27.5,
+  "total_findings": 14,
+  "avg_findings_per_doc": 0.35,
+  "severity": {
+    "warning": 7,
+    "info": 7
+  },
+  "checkers": {
+    "typo": 7,
+    "format": 7
+  },
+  "by_category": {
+    "build": {
+      "docs": 4,
+      "findings": 7
+    },
+    "general": {
+      "docs": 2,
+      "findings": 0
+    },
+    "labor": {
+      "docs": 8,
+      "findings": 2
+    },
+    "lease": {
+      "docs": 6,
+      "findings": 2
+    },
+    "sale": {
+      "docs": 16,
+      "findings": 3
+    },
+    "trans": {
+      "docs": 4,
+      "findings": 0
+    }
+  },
+  "gt_template_missing_docs": 20,
+  "real_typo_hits": 1,
+  "contextual_fp": 6,
+  "contextual_fp_detail": [
+    [
+      "build_01_建设工程施工合同.pdf",
+      "疑似错别字：「由其」建议改为「尤其」"
+    ],
+    [
+      "build_01_建设工程施工合同.pdf",
+      "疑似错别字：「由其」建议改为「尤其」"
+    ],
+    [
+      "build_03_建设工程设计合同.pdf",
+      "疑似错别字：「由其」建议改为「尤其」"
+    ],
+    [
+      "build_03_建设工程设计合同.pdf",
+      "疑似错别字：「审报」建议改为「申报」"
+    ],
+    [
+      "build_03_建设工程设计合同.pdf",
+      "疑似错别字：「因该」建议改为「应该」"
+    ],
+    [
+      "labor_01_建设工程施工劳务分包合同.pdf",
+      "疑似错别字：「由其」建议改为「尤其」"
+    ]
+  ]
+}

@@ -1,0 +1,581 @@
+[
+  {
+    "file": "build_01_建设工程施工合同.pdf",
+    "doc_id": "57b4fadf-8510-4404-bb8c-6eaacb276eee",
+    "status": "parsed",
+    "title": "建设工程施工合同（住房城乡建设部、国家工商总局2017版）",
+    "category": "build",
+    "findings_total": 2,
+    "severity": {
+      "warning": 2
+    },
+    "checkers": {
+      "typo": 2
+    },
+    "sample": [
+      {
+        "severity": "warning",
+        "checker": "typo",
+        "title": "",
+        "message": "疑似错别字：「由其」建议改为「尤其」"
+      },
+      {
+        "severity": "warning",
+        "checker": "typo",
+        "title": "",
+        "message": "疑似错别字：「由其」建议改为「尤其」"
+      }
+    ]
+  },
+  {
+    "file": "build_02_建设工程监理合同.pdf",
+    "doc_id": "54f0c6ba-47e2-4301-91a4-ec586b0b0aff",
+    "status": "parsed",
+    "title": "建设工程监理合同（住房城乡建设部、国家工商总局2012版）",
+    "category": "build",
+    "findings_total": 1,
+    "severity": {
+      "info": 1
+    },
+    "checkers": {
+      "format": 1
+    },
+    "sample": [
+      {
+        "severity": "info",
+        "checker": "format",
+        "title": "",
+        "message": "标题层级可能跳级：「1. 工程名称： ；」前缺少 （一） 层级"
+      }
+    ]
+  },
+  {
+    "file": "build_03_建设工程设计合同.pdf",
+    "doc_id": "8d6b0098-1f37-46ff-8c77-f5047b0b06db",
+    "status": "parsed",
+    "title": "建设工程设计合同（房屋建筑工程）（住房城乡建设部、国家工商总局2015版）",
+    "category": "build",
+    "findings_total": 3,
+    "severity": {
+      "warning": 3
+    },
+    "checkers": {
+      "typo": 3
+    },
+    "sample": [
+      {
+        "severity": "warning",
+        "checker": "typo",
+        "title": "",
+        "message": "疑似错别字：「由其」建议改为「尤其」"
+      },
+      {
+        "severity": "warning",
+        "checker": "typo",
+        "title": "",
+        "message": "疑似错别字：「审报」建议改为「申报」"
+      },
+      {
+        "severity": "warning",
+        "checker": "typo",
+        "title": "",
+        "message": "疑似错别字：「因该」建议改为「应该」"
+      }
+    ]
+  },
+  {
+    "file": "build_04_家庭居室装饰装修工程施工合同.pdf",
+    "doc_id": "61bd7924-7323-40c6-8b9d-dc42cce2452b",
+    "status": "parsed",
+    "title": "家庭居室装饰装修工程施工合同（建设部、国家工商总局2000版）",
+    "category": "build",
+    "findings_total": 1,
+    "severity": {
+      "warning": 1
+    },
+    "checkers": {
+      "typo": 1
+    },
+    "sample": [
+      {
+        "severity": "warning",
+        "checker": "typo",
+        "title": "",
+        "message": "疑似错别字：「签定」建议改为「签订」"
+      }
+    ]
+  },
+  {
+    "file": "general_01_仓储合同.pdf",
+    "doc_id": "9663c2f7-ebc2-411e-8c77-552310b34742",
+    "status": "parsed",
+    "title": "仓储合同（国家工商总局2000版）",
+    "category": "general",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "general_02_保管合同.pdf",
+    "doc_id": "6aa2781b-afc1-49cd-bc9f-27ab129458c0",
+    "status": "parsed",
+    "title": "保管合同（市场监管总局2025版）",
+    "category": "general",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "labor_01_建设工程施工劳务分包合同.pdf",
+    "doc_id": "91299479-f54e-4662-80cd-9b43d6f03367",
+    "status": "parsed",
+    "title": "建设工程施工劳务分包合同（建设部、国家工商总局2003版）",
+    "category": "labor",
+    "findings_total": 1,
+    "severity": {
+      "warning": 1
+    },
+    "checkers": {
+      "typo": 1
+    },
+    "sample": [
+      {
+        "severity": "warning",
+        "checker": "typo",
+        "title": "",
+        "message": "疑似错别字：「由其」建议改为「尤其」"
+      }
+    ]
+  },
+  {
+    "file": "labor_02_委托合同.pdf",
+    "doc_id": "41ee0c99-8863-4440-b1f0-e923993abd8d",
+    "status": "parsed",
+    "title": "委托合同（市场监管总局2025版）",
+    "category": "labor",
+    "findings_total": 1,
+    "severity": {
+      "info": 1
+    },
+    "checkers": {
+      "format": 1
+    },
+    "sample": [
+      {
+        "severity": "info",
+        "checker": "format",
+        "title": "",
+        "message": "标题层级可能跳级：「（1） ：」前缺少 1. 层级"
+      }
+    ]
+  },
+  {
+    "file": "labor_03_承揽合同.pdf",
+    "doc_id": "c44193e1-7172-46a4-ab71-37c588304a0a",
+    "status": "parsed",
+    "title": "承揽合同（国家工商总局2000版）",
+    "category": "labor",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "labor_04_加工合同.pdf",
+    "doc_id": "3d72c027-4851-4bee-936d-cf1882c622e5",
+    "status": "parsed",
+    "title": "加工合同（国家工商总局2000版）",
+    "category": "labor",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "labor_05_定作合同.pdf",
+    "doc_id": "5cf16123-c2e9-45b7-8254-2c672c7b2751",
+    "status": "parsed",
+    "title": "定作合同（国家工商总局2000版）",
+    "category": "labor",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "labor_06_修缮修理合同.pdf",
+    "doc_id": "04869942-bc49-48cb-98e9-61801a7aa72f",
+    "status": "parsed",
+    "title": "修缮修理合同（国家工商总局2000版）",
+    "category": "labor",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "labor_07_养老机构服务合同.pdf",
+    "doc_id": "5d8ea163-17c7-4d9c-9fa4-a08f75e581b3",
+    "status": "parsed",
+    "title": "养老机构服务合同（民政部、国家工商总局2016版）",
+    "category": "labor",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "labor_08_广告发布业务合同.pdf",
+    "doc_id": "3f72b520-3d4f-461b-8fe6-9a886c0af71f",
+    "status": "parsed",
+    "title": "广告发布业务合同",
+    "category": "labor",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "lease_01_城镇房屋租赁合同.pdf",
+    "doc_id": "a30f3015-6562-4e55-9949-a1fd9e085ab5",
+    "status": "parsed",
+    "title": "城镇房屋租赁合同（市场监管总局2025版）",
+    "category": "lease",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "lease_02_建筑施工物资租赁合同.pdf",
+    "doc_id": "3b048aa2-47d2-451c-864b-c0d151770b24",
+    "status": "parsed",
+    "title": "建筑施工物资租赁合同（国家工商总局2000版）",
+    "category": "lease",
+    "findings_total": 1,
+    "severity": {
+      "info": 1
+    },
+    "checkers": {
+      "format": 1
+    },
+    "sample": [
+      {
+        "severity": "info",
+        "checker": "format",
+        "title": "",
+        "message": "标题层级可能跳级：「1. 未按时间提供租赁物资，应向承租人偿付违约期」前缺少 （一） 层级"
+      }
+    ]
+  },
+  {
+    "file": "lease_03_柜台租赁经营合同.pdf",
+    "doc_id": "1e5bd441-492f-4b95-a44c-f97664fd2331",
+    "status": "parsed",
+    "title": "柜台租赁经营合同（国家工商总局2013版）",
+    "category": "lease",
+    "findings_total": 1,
+    "severity": {
+      "info": 1
+    },
+    "checkers": {
+      "format": 1
+    },
+    "sample": [
+      {
+        "severity": "info",
+        "checker": "format",
+        "title": "",
+        "message": "标题层级可能跳级：「1. 租金标准：」前缺少 （一） 层级"
+      }
+    ]
+  },
+  {
+    "file": "lease_04_人民防空工程租赁使用合同.pdf",
+    "doc_id": "5241b005-83fc-47aa-9b6c-943c3aa21ee0",
+    "status": "parsed",
+    "title": "人民防空工程租赁使用合同（人防办公室、国家工商总局2002版）",
+    "category": "lease",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "lease_05_农村土地经营权出租合同.pdf",
+    "doc_id": "6bfa0a14-4e27-4269-8bae-0f4db08530d3",
+    "status": "parsed",
+    "title": "农村土地经营权出租合同（农业农村部、市场监管总局2021版）",
+    "category": "lease",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "lease_06_农村土地经营权入股合同.pdf",
+    "doc_id": "5b925402-f9a7-46a0-ad54-3542841f0b05",
+    "status": "parsed",
+    "title": "农村土地经营权入股合同（农业农村部、市场监管总局2021版）",
+    "category": "lease",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_01_工业品买卖合同.pdf",
+    "doc_id": "286da92b-de16-4a8b-a5d2-f3d5e1e341b1",
+    "status": "parsed",
+    "title": "工业品买卖合同（国家工商总局2000版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_02_钢材买卖合同.pdf",
+    "doc_id": "63bc830c-34b7-4a28-8dbe-6601d406d500",
+    "status": "parsed",
+    "title": "钢材买卖（订货）合同（国家工商总局2008版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_03_化肥买卖合同.pdf",
+    "doc_id": "ea19c2c1-7870-45fe-be1f-495a3a575f05",
+    "status": "parsed",
+    "title": "化肥买卖合同（国家工商总局2000版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_04_农药买卖合同.pdf",
+    "doc_id": "80b648cd-e87d-4b1c-8181-97563dc2a67e",
+    "status": "parsed",
+    "title": "农药买卖合同（国家工商总局2000版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_05_粮食买卖合同.pdf",
+    "doc_id": "50a09752-119b-448f-b207-28cee34f7da9",
+    "status": "parsed",
+    "title": "粮食买卖合同（国家工商总局2000版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_06_棉花买卖合同.pdf",
+    "doc_id": "38d5b82a-ef24-4eaf-8954-ffdfefff9572",
+    "status": "parsed",
+    "title": "棉花买卖合同（国家工商总局2000版 ）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_07_木材买卖合同.pdf",
+    "doc_id": "9d1d058e-8a94-4072-9257-983a22f325fd",
+    "status": "parsed",
+    "title": "木材买卖（订货）合同（国家工商总局2000版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_08_煤炭买卖合同.pdf",
+    "doc_id": "2bc73e86-99eb-465c-89b9-37f5873759ff",
+    "status": "parsed",
+    "title": "煤炭买卖合同（国家工商总局1999版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_09_水泥买卖合同.pdf",
+    "doc_id": "e8d367bc-1868-4185-9a10-fbaa5372873f",
+    "status": "parsed",
+    "title": "水泥买卖合同（国家工商总局2008版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_10_家具买卖合同.pdf",
+    "doc_id": "1af378f8-5bae-476b-a8a4-e617d8c56f04",
+    "status": "parsed",
+    "title": "家具买卖合同（国家工商总局2000版 ）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_11_汽车买卖合同.pdf",
+    "doc_id": "cee617fc-4e2c-4b4e-a66e-100516f75644",
+    "status": "parsed",
+    "title": "汽车买卖合同（国家工商总局2015版）",
+    "category": "sale",
+    "findings_total": 1,
+    "severity": {
+      "info": 1
+    },
+    "checkers": {
+      "format": 1
+    },
+    "sample": [
+      {
+        "severity": "info",
+        "checker": "format",
+        "title": "",
+        "message": "标题层级可能跳级：「1. 直接付款方式 :」前缺少 （一） 层级"
+      }
+    ]
+  },
+  {
+    "file": "sale_12_二手车买卖合同.pdf",
+    "doc_id": "e6051551-2748-445e-9824-9d90ce4a9a03",
+    "status": "parsed",
+    "title": "二手车买卖合同（国家工商总局2015版）",
+    "category": "sale",
+    "findings_total": 1,
+    "severity": {
+      "info": 1
+    },
+    "checkers": {
+      "format": 1
+    },
+    "sample": [
+      {
+        "severity": "info",
+        "checker": "format",
+        "title": "",
+        "message": "标题层级可能跳级：「1. 车主名称或姓名 : 　　　　 ；」前缺少 （一） 层级"
+      }
+    ]
+  },
+  {
+    "file": "sale_13_农副产品买卖合同.pdf",
+    "doc_id": "6a654d59-c628-4518-b747-20786c40009a",
+    "status": "parsed",
+    "title": "农副产品买卖合同（市场监管总局2025版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_14_烟花爆竹安全买卖合同.pdf",
+    "doc_id": "cf90e2c4-b23c-4152-b49e-6ebc65d26c98",
+    "status": "parsed",
+    "title": "烟花爆竹安全买卖合同（国家安全监管总局、国家工商总局、公安部2012版）",
+    "category": "sale",
+    "findings_total": 1,
+    "severity": {
+      "info": 1
+    },
+    "checkers": {
+      "format": 1
+    },
+    "sample": [
+      {
+        "severity": "info",
+        "checker": "format",
+        "title": "",
+        "message": "标题层级可能跳级：「1、双方同意将争议提交 仲裁委员会仲裁；」前缺少 （一） 层级"
+      }
+    ]
+  },
+  {
+    "file": "sale_15_民用爆破器材买卖合同.pdf",
+    "doc_id": "15924e6c-9c51-4fe1-ab7a-8ec7a1353a5b",
+    "status": "parsed",
+    "title": "民用爆破器材买卖合同（国防科工委、国家工商总局2001版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "sale_16_生鲜乳购销合同.pdf",
+    "doc_id": "e21f387c-4c6e-4443-a770-f4e6f724f015",
+    "status": "parsed",
+    "title": "生鲜乳购销合同（农业部、工业和信息化部、国家工商总局2016版）",
+    "category": "sale",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "trans_01_水路货物运输合同.pdf",
+    "doc_id": "c7385c91-c943-4b9c-aaec-2c6508d629a0",
+    "status": "parsed",
+    "title": "水路货物运输合同（国家工商总局1991版）",
+    "category": "trans",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "trans_02_铁路货物运输合同.pdf",
+    "doc_id": "7634e61c-fafd-4e9f-85c3-24f26b37de46",
+    "status": "parsed",
+    "title": "铁路货物运输合同（国家工商总局1991版）",
+    "category": "trans",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "trans_03_航次租船合同.pdf",
+    "doc_id": "fb8106e7-43dc-456c-afe5-b372f67363b6",
+    "status": "parsed",
+    "title": "航次租船合同（国家工商总局1991版）",
+    "category": "trans",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  },
+  {
+    "file": "trans_04_城市供用水合同.pdf",
+    "doc_id": "565da9ed-814f-44a8-9ca1-e289a3c5bd10",
+    "status": "parsed",
+    "title": "城市供用水合同（国家工商总局1999版）",
+    "category": "trans",
+    "findings_total": 0,
+    "severity": {},
+    "checkers": {},
+    "sample": []
+  }
+]
