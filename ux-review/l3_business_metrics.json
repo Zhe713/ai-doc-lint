@@ -1,0 +1,182 @@
+{
+  "doc_total": 417,
+  "doc_parsed": 415,
+  "doc_awaiting": 2,
+  "doc_failed": 0,
+  "doc_status_rows": [
+    [
+      "parsed",
+      "415"
+    ],
+    [
+      "awaiting_decision",
+      "2"
+    ]
+  ],
+  "task_total": 6433,
+  "task_gated": [
+    [
+      "review",
+      "failed",
+      "281"
+    ],
+    [
+      "embed",
+      "failed",
+      "6"
+    ],
+    [
+      "cross_compare",
+      "failed",
+      "2"
+    ],
+    [
+      "parse",
+      "awaiting_decision",
+      "2"
+    ],
+    [
+      "annotate",
+      "failed",
+      "1"
+    ]
+  ],
+  "task_gate_reasons": [
+    [
+      "(none)",
+      "6431"
+    ],
+    [
+      "parse_failed",
+      "2"
+    ]
+  ],
+  "task_ocr": 0,
+  "task_warnings": 56,
+  "find_total": 255,
+  "find_per_doc_avg": 0.61,
+  "find_severity": [
+    [
+      "warning",
+      "205"
+    ],
+    [
+      "error",
+      "41"
+    ],
+    [
+      "info",
+      "9"
+    ]
+  ],
+  "find_checker": [
+    [
+      "typo",
+      "130"
+    ],
+    [
+      "cross_doc",
+      "65"
+    ],
+    [
+      "clause",
+      "43"
+    ],
+    [
+      "format",
+      "15"
+    ],
+    [
+      "cross",
+      "2"
+    ]
+  ],
+  "find_status": [
+    [
+      "open",
+      "253"
+    ],
+    [
+      "fixed",
+      "2"
+    ]
+  ],
+  "find_per_doc_dist": [
+    [
+      "1-2",
+      "57"
+    ],
+    [
+      "3-5",
+      "11"
+    ],
+    [
+      "6-10",
+      "1"
+    ],
+    [
+      ">10",
+      "4"
+    ]
+  ],
+  "find_top_docs": [
+    [
+      "day25_290b9d66-d6bc-4b9d-9664-8d5fedc32546.txt",
+      "42"
+    ],
+    [
+      "数据提供合同示范文本-GF-2025-2615.pdf",
+      "36"
+    ],
+    [
+      "day25_group_290b9d66-d6bc-4b9d-9664-8d5fedc32546.txt",
+      "21"
+    ],
+    [
+      "b76c15c3-57f3-4699-80c4-4591250db679.txt",
+      "10"
+    ],
+    [
+      "9813769f-1a94-4c63-9aa4-d9b0afbf0cee.txt",
+      "10"
+    ],
+    [
+      "290b9d66-d6bc-4b9d-9664-8d5fedc32546.txt",
+      "10"
+    ],
+    [
+      "e4eb10e9-e1c4-4f57-9a62-40d951a03c54.txt",
+      "10"
+    ],
+    [
+      "day12_bad.docx",
+      "8"
+    ],
+    [
+      "build_03_建设工程设计合同.pdf",
+      "3"
+    ],
+    [
+      "test_bad.txt",
+      "3"
+    ]
+  ],
+  "doc_by_user": [
+    [
+      "boss_admin",
+      "410"
+    ],
+    [
+      "uxuser_20261012",
+      "5"
+    ],
+    [
+      "biz_20261013",
+      "1"
+    ],
+    [
+      "legal_20261013",
+      "1"
+    ]
+  ]
+}

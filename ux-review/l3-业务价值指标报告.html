@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ai-doc-lint L3 业务价值代理指标报告</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231d4ed8'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3EA%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  :root { --blue:#1d4ed8; --blue-2:#3b82f6; --ink:#1f2937; --muted:#6b7280; --bg:#f5f7fb; --card:#fff; --line:#e5e7eb; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; }
+  .wrap { max-width:1080px; margin:0 auto; padding:28px 16px 48px; }
+  header { text-align:center; padding:18px 0 8px; }
+  header h1 { font-size:26px; letter-spacing:1px; }
+  header .sub { color:var(--muted); font-size:13px; margin-top:6px; }
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:22px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 14px; text-align:center; }
+  .card .num { font-size:30px; font-weight:700; color:var(--blue); }
+  .card .lbl { font-size:12px; color:var(--muted); margin-top:4px; }
+  .card .note { font-size:11px; color:#9ca3af; margin-top:2px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin:16px 0; }
+  section h2 { font-size:17px; margin-bottom:4px; border-left:4px solid var(--blue); padding-left:10px; }
+  section .desc { font-size:12px; color:var(--muted); margin-bottom:14px; }
+  .chart { width:100%; height:320px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
+  col:nth-child(1){ width:38%; } col:nth-child(2){ width:20%; } col:nth-child(3){ width:42%; }
+  th,td { border:1px solid var(--line); padding:7px 8px; text-align:left; }
+  th { background:#eef2ff; font-weight:600; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; }
+  .tag-warning { background:#fef3c7; color:#92400e; }
+  .tag-error { background:#fee2e2; color:#991b1b; }
+  .tag-info { background:#e0f2fe; color:#075985; }
+  footer { text-align:center; color:#9ca3af; font-size:12px; margin-top:24px; }
+  @media (max-width:720px) {
+    .cards { grid-template-columns:repeat(2,1fr); }
+    .grid2 { grid-template-columns:1fr; }
+    .chart { height:280px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ai-doc-lint · L3 业务价值代理指标</h1>
+    <div class="sub">统计日期 2026-10-14 · 数据直查 PostgreSQL（documents / check_findings / document_tasks）</div>
+  </header>
+
+  <div class="cards">
+    <div class="card"><div class="num">417</div><div class="lbl">累计上传文档</div><div class="note">含真实语料与验收测试集</div></div>
+    <div class="card"><div class="num">0.48%</div><div class="lbl">上传即拦截率</div><div class="note">2 份待人工决策 / 417</div></div>
+    <div class="card"><div class="num">0.61</div><div class="lbl">每份发现问题数</div><div class="note">255 条 / 415 份已解析</div></div>
+    <div class="card"><div class="num">255</div><div class="lbl">累计发现问题</div><div class="note">error 41 · warning 205 · info 9</div></div>
+  </div>
+
+  <section>
+    <h2>一、上传即拦截率（入口质量闸门）</h2>
+    <div class="desc">解析阶段被系统拦截/转入人工决策的比例，反映工具在入口处拦截异常文档的能力；其余任务失败项为历史环境残留（旧代码/中断），不计入当前拦截。</div>
+    <div class="grid2">
+      <div>
+        <div id="chartIntercept" class="chart"></div>
+      </div>
+      <div>
+        <table>
+          <colgroup><col><col><col></colgroup>
+          <thead><tr><th>文档状态</th><th>数量</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>已解析</td><td>415</td><td>进入校验/检索链路</td></tr>
+            <tr><td>待人工决策</td><td>2</td><td>解析受阻，等待「重试 / 带警告继续」</td></tr>
+            <tr><td>解析失败</td><td>0</td><td>当前环境无失败残留</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:12px;color:var(--muted);margin-top:10px;">拦截原因：2 份均为 parse_failed（文档内容异常/不可解析），由人工闸门接管，未静默放行。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>二、每份发现问题数（校验产出密度）</h2>
+    <div class="desc">全库 255 条有效发现 ÷ 415 份已解析 = 0.61 条/份；分布显示问题集中在少数高风险文档（&gt;10 条的有 4 份），符合「大部分合同合规、少数需重点审查」的业务预期。</div>
+    <div class="grid2">
+      <div id="chartPerDoc" class="chart"></div>
+      <div>
+        <table>
+          <colgroup><col><col><col></colgroup>
+          <thead><tr><th>问题最多文档 Top 5</th><th>发现数</th><th>来源</th></tr></thead>
+          <tbody>
+            <tr><td>day25_290b9d66…txt</td><td>42</td><td>验收仿真语料</td></tr>
+            <tr><td>数据提供合同示范文本-GF-2025-2615.pdf</td><td>36</td><td>市场监管总局真实文本</td></tr>
+            <tr><td>day25_group_290b9d66…txt</td><td>21</td><td>验收仿真语料</td></tr>
+            <tr><td>b76c15c3-57f3…txt 等 2 份</td><td>10</td><td>仿真语料</td></tr>
+            <tr><td>day12_bad.docx</td><td>8</td><td>错别字验收样例</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>三、问题严重度与检查器贡献</h2>
+    <div class="desc">error 级（41 条，16.1%）需优先人工复核；warning 级（205 条）为提示性发现。检查器构成：错别字 130、跨文档比对 65、条款完整性 43、格式 15、交叉勾稽 2。</div>
+    <div class="grid2">
+      <div id="chartSeverity" class="chart"></div>
+      <div id="chartChecker" class="chart"></div>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-top:12px;">
+      处理状态：253 条待处理（open）、2 条已解决（fixed）——后续 W7 自学习闭环可在此基础上做反馈回流。
+    </p>
+  </section>
+
+  <section>
+    <h2>四、使用分布（按账号）</h2>
+    <div class="desc">410 份来自管理员验收语料（golden 真实合同 40 + 历史仿真 100 + 阶段测试）；4 个体验账号共上传 7 份，覆盖独立工具多角色使用。</div>
+    <div id="chartUser" class="chart" style="height:240px;"></div>
+  </section>
+
+  <footer>ai-doc-lint 验收体系 · L3 业务价值代理指标（生成于 2026-10-14）</footer>
+</div>
+
+<script>
+const M = {
+  docTotal:417, docParsed:415, docAwaiting:2, findTotal:255,
+  findPerDocAvg:0.61, findNoDoc:342,
+  severity:[{name:'提示 info',value:9},{name:'警告 warning',value:205},{name:'错误 error',value:41}],
+  checker:[{name:'错别字 typo',value:130},{name:'跨文档比对',value:65},{name:'条款完整性',value:43},{name:'格式',value:15},{name:'交叉勾稽',value:2}],
+  perDocDist:[{name:'0 条',value:342},{name:'1-2 条',value:57},{name:'3-5 条',value:11},{name:'6-10 条',value:1},{name:'>10 条',value:4}],
+  users:[{name:'boss_admin',value:410},{name:'uxuser_20261012',value:5},{name:'biz_20261013',value:1},{name:'legal_20261013',value:1}]
+};
+const BLUE='#1d4ed8', BLUE2='#3b82f6', AMBER='#f59e0b', RED='#dc2626', GRAY='#9ca3af';
+function mk(id,opt){ const c=echarts.init(document.getElementById(id)); c.setOption(opt); window.addEventListener('resize',()=>c.resize()); }
+mk('chartIntercept',{
+  tooltip:{trigger:'item',formatter:'{b}: {c} 份 ({d}%)'},
+  series:[{type:'pie',radius:['42%','70%'],center:['50%','50%'],
+    data:[{name:'已解析 415',value:415,itemStyle:{color:BLUE}},{name:'待人工决策 2',value:2,itemStyle:{color:AMBER}}],
+    label:{formatter:'{b}\n{d}%',fontSize:12}}]
+});
+mk('chartPerDoc',{
+  tooltip:{trigger:'axis'},grid:{left:40,right:16,top:20,bottom:28},
+  xAxis:{type:'category',data:M.perDocDist.map(d=>d.name),axisLabel:{fontSize:11}},
+  yAxis:{type:'value',minInterval:1},
+  series:[{type:'bar',data:M.perDocDist.map(d=>d.value),barWidth:'52%',
+    itemStyle:{color:function(p){return ['#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'][p.dataIndex]}},
+    label:{show:true,position:'top',fontSize:11}}]
+});
+mk('chartSeverity',{
+  tooltip:{trigger:'item',formatter:'{b}: {c} 条 ({d}%)'},
+  series:[{type:'pie',radius:['42%','70%'],
+    data:[{name:'提示 info 9',value:9,itemStyle:{color:GRAY}},{name:'警告 warning 205',value:205,itemStyle:{color:AMBER}},{name:'错误 error 41',value:41,itemStyle:{color:RED}}],
+    label:{formatter:'{b}\n{d}%',fontSize:12}}]
+});
+mk('chartChecker',{
+  tooltip:{trigger:'axis'},grid:{left:70,right:24,top:16,bottom:26},
+  xAxis:{type:'value',minInterval:1},yAxis:{type:'category',data:M.checker.map(d=>d.name).reverse(),axisLabel:{fontSize:12}},
+  series:[{type:'bar',data:M.checker.map(d=>d.value).reverse(),barWidth:'55%',
+    itemStyle:{color:BLUE2},label:{show:true,position:'right',fontSize:11}}]
+});
+mk('chartUser',{
+  tooltip:{trigger:'item',formatter:'{b}: {c} 份 ({d}%)'},
+  series:[{type:'pie',radius:['38%','62%'],
+    data:M.users.map((u,i)=>Object.assign({},u,{itemStyle:{color:['#1d4ed8','#3b82f6','#60a5fa','#93c5fd'][i]}})),
+    label:{formatter:'{b} {c} 份',fontSize:11}}]
+});
+</script>
+</body>
+</html>
