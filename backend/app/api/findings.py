@@ -11,6 +11,7 @@ from app.models.document import (
     FINDING_STATUSES,
     CheckFinding,
     Document,
+    DocumentTask,
 )
 from app.models.user import User
 from app.core.deps import get_current_user
@@ -63,10 +64,31 @@ def list_findings(
         CheckFinding.id,
     )
     rows = db.execute(query).scalars().all()
+    # 文档级解析状态：供前端展示「带警告完成」「检查器降级」警示（P1-5/P2-8 修复）
+    doc_flags = {"continued_with_warning": False, "checker_degraded": False, "checker_warning_detail": []}
+    parse_task = db.execute(
+        select(DocumentTask)
+        .where(
+            DocumentTask.document_id == doc.id,
+            DocumentTask.task_type == "parse",
+        )
+        .order_by(DocumentTask.created_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if parse_task is not None:
+        task_warnings = parse_task.warnings or []
+        if any(isinstance(w, dict) and w.get("code") == "user_continued_with_warning" for w in task_warnings):
+            doc_flags["continued_with_warning"] = True
+        stats = parse_task.stats or {}
+        cw = stats.get("checker_warnings") or []
+        if cw:
+            doc_flags["checker_degraded"] = True
+            doc_flags["checker_warning_detail"] = cw
     return {
         "document_id": doc.id,
         "total": len(rows),
         "items": [FindingOut.model_validate(f).model_dump() for f in rows],
+        "doc_flags": doc_flags,
     }
 
 

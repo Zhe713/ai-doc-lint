@@ -12,6 +12,13 @@
       </el-button>
     </div>
 
+    <el-alert v-if="docFlags?.continued_with_warning" type="error" :closable="false" show-icon
+      title="该文件经「带警告继续」完成解析，内容可能缺失或存在识别偏差"
+      description="下方结果仅供辅助参考，请务必对照原文件核实后再决策。" style="margin-bottom: 12px" />
+    <el-alert v-if="docFlags?.checker_degraded" type="warning" :closable="false" show-icon
+      title="错别字检查当前覆盖范围有限"
+      description="专业词库未完全就绪，部分错别字可能未被检出，建议结合人工复核。" style="margin-bottom: 12px" />
+
     <el-tabs v-model="severity" class="sev-tabs">
       <el-tab-pane label="全部" name="all" />
       <el-tab-pane :label="`错误 ${counts.error}`" name="error" />
@@ -20,12 +27,12 @@
     </el-tabs>
 
     <div class="filters">
-      <el-select v-model="checker" placeholder="检查器" clearable style="width: 150px">
+      <el-select v-model="checker" placeholder="检查器（格式 / 错别字 / 条款）" clearable style="width: 220px">
         <el-option label="格式检查" value="format" />
         <el-option label="错别字" value="typo" />
         <el-option label="条款检查" value="clause" />
       </el-select>
-      <el-select v-model="fstatus" placeholder="处理状态" clearable style="width: 150px">
+      <el-select v-model="fstatus" placeholder="处理状态（待处理 / 已忽略 / 已修复）" clearable style="width: 240px">
         <el-option label="待处理" value="open" />
         <el-option label="已忽略" value="ignored" />
         <el-option label="已修复" value="fixed" />
@@ -118,6 +125,7 @@ const findings = ref<Finding[]>([])
 const severity = ref('all')
 const checker = ref('')
 const fstatus = ref('')
+const docFlags = ref<import('@/api/findings').DocFlags | null>(null)
 
 const sevType: Record<string, string> = { error: 'danger', warning: 'warning', info: 'info' }
 const sevLabel: Record<string, string> = { error: '错误', warning: '警告', info: '提示' }
@@ -145,6 +153,7 @@ async function reload() {
   try {
     const res = await listFindings(docId)
     findings.value = res.items
+    docFlags.value = res.doc_flags ?? null
   } finally {
     loading.value = false
   }
@@ -171,6 +180,7 @@ async function onAnnotate() {
       if (task.status === 'parsed') {
         await downloadAnnotated(taskId)
         ElMessage.success('批注版已生成并开始下载')
+        ElMessage.info('Word 文档：问题以批注形式标在原文；txt/pdf 文档：附完整原文可修改后重新上传')
         return
       }
       if (task.status === 'failed') {

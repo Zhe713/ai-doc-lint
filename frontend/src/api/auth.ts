@@ -53,10 +53,16 @@ export const fetchMe = () => client.get<UserInfo>('/users/me').then((r) => r.dat
 export const listUsers = () =>
   client.get<UserInfo[]>('/admin/users').then((r) => r.data)
 
-export const getAdminSettings = () =>
-  client.get<{ open_registration: boolean }>('/admin/settings').then((r) => r.data)
+export interface AdminSettings {
+  open_registration: boolean
+  data_retention_days: number | null
+  llm_daily_quota: number | null
+}
 
-export const patchAdminSettings = (open_registration: boolean) =>
+export const getAdminSettings = () =>
+  client.get<AdminSettings>('/admin/settings').then((r) => r.data)
+
+export const patchAdminSettings = (patch: Partial<AdminSettings>) =>
   client
-    .patch<{ open_registration: boolean }>('/admin/settings', { open_registration })
+    .patch<AdminSettings>('/admin/settings', patch)
     .then((r) => r.data)

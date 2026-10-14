@@ -68,3 +68,5 @@ class UserOut(BaseModel):
 
 class SettingsIn(BaseModel):
     open_registration: bool | None = None
+    data_retention_days: int | None = Field(default=None, ge=0, le=3650)
+    llm_daily_quota: int | None = Field(default=None, ge=0, le=100000)

@@ -24,8 +24,9 @@
           登录
         </el-button>
       </el-form>
-      <div v-if="auth.openRegistration" class="footer">
-        还没有账号？<router-link to="/register">注册</router-link>
+      <div class="auth-links">
+        <el-button link type="primary" @click="showForgot">忘记密码？</el-button>
+        <span v-if="auth.openRegistration">还没有账号？<router-link to="/register">注册</router-link></span>
       </div>
     </el-card>
   </div>
@@ -34,7 +35,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 
 import { useAuthStore } from '@/stores/auth'
 
@@ -62,6 +63,14 @@ async function submit() {
   } finally {
     loading.value = false
   }
+}
+
+async function showForgot() {
+  await ElMessageBox.alert(
+    '本工具为本地部署、独立运行，未接入邮箱或短信服务。若忘记密码，请联系部署管理员在数据库中重置。',
+    '忘记密码',
+    { confirmButtonText: '知道了', type: 'info' }
+  )
 }
 </script>
 
@@ -91,6 +100,13 @@ async function submit() {
 .footer {
   text-align: center;
   margin-top: 12px;
+  font-size: 13px;
+}
+.auth-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
   font-size: 13px;
 }
 </style>

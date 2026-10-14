@@ -56,6 +56,28 @@ def _active_findings(db: Session, document_id: uuid.UUID) -> list[CheckFinding]:
     return rows
 
 
+def _load_plaintext(db: Session, document: Document) -> str | None:
+    """读取解析任务落盘的纯文本（非 docx 输入生成批注版时附带原合同全文）。"""
+    parse_task = (
+        db.query(DocumentTask)
+        .filter(
+            DocumentTask.document_id == document.id,
+            DocumentTask.task_type == "parse",
+        )
+        .order_by(DocumentTask.created_at.desc())
+        .first()
+    )
+    if parse_task is None:
+        return None
+    key = (parse_task.result_refs or {}).get("plaintext")
+    if not key:
+        return None
+    try:
+        return storage.get_object_bytes(key).decode("utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _comment_text(finding: CheckFinding) -> str:
     parts = [SEV_TAG.get(finding.severity, "【提示】") + finding.message]
     if finding.suggestion:
@@ -115,10 +137,11 @@ def _annotate_docx(data: bytes, findings: list[CheckFinding]) -> bytes:
     return out.getvalue()
 
 
-# ---------------- 问题清单 docx（pdf/txt/md） ----------------
+# ---------------- 全文+问题清单 docx（pdf/txt/md） ----------------
 
 
-def _build_checklist(filename: str, findings: list[CheckFinding]) -> bytes:
+def _build_full_doc(filename: str, findings: list[CheckFinding], plaintext: str) -> bytes:
+    """问题清单（前） + 原合同全文（后，可编辑）——独立工具闭环：用户下载后可改全文再覆盖重传。"""
     doc = DocxDocument()
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -138,6 +161,17 @@ def _build_checklist(filename: str, findings: list[CheckFinding]) -> bytes:
             doc.add_paragraph(f"原文：…{snippet}…")
         if finding.suggestion:
             doc.add_paragraph(f"建议：{finding.suggestion}")
+
+    # 原合同全文（可编辑；允许用户在下载物中直接修改后覆盖重传）
+    if plaintext and plaintext.strip():
+        doc.add_page_break()
+        full = doc.add_paragraph()
+        full.add_run("原合同全文（可编辑，修改后可直接覆盖重传）").bold = True
+        doc.add_paragraph(
+            "以下为原文件解析出的完整文本，供直接修改使用。"
+        )
+        for line in plaintext.splitlines():
+            doc.add_paragraph(line)
 
     out = io.BytesIO()
     doc.save(out)
@@ -191,8 +225,10 @@ def run_annotate(self, task_id_str: str):
             output = _annotate_docx(data, findings)
             label = "批注版文档"
         else:
-            output = _build_checklist(document.filename, findings)
-            label = "问题清单"
+            # 非 docx：问题清单 + 原合同全文（P1-3 修复：下载物须可直接修改再覆盖重传）
+            plaintext = _load_plaintext(db, document)
+            output = _build_full_doc(document.filename, findings, plaintext or "")
+            label = "问题清单+全文"
 
         key = f"artifacts/{document.id}/annotated/{uuid.uuid4().hex}.docx"
         storage.put_object(

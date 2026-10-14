@@ -90,8 +90,8 @@
                       {{ cellText(row.cells[d.id]) }}
                     </div>
                     <div class="cell-meta">
-                      <el-tag size="tiny" :type="row.cells[d.id].source === 'llm' ? 'warning' : 'info'" effect="plain">
-                        {{ row.cells[d.id].source === 'llm' ? 'LLM' : '规则' }}
+                      <el-tag size="tiny" :type="cellSourceType(row.cells[d.id].source)" effect="plain">
+                        {{ cellSourceLabel(row.cells[d.id].source) }}
                       </el-tag>
                     </div>
                   </div>
@@ -133,8 +133,14 @@
           <div v-if="docs.length === 0" class="empty">暂无已解析文档，请先在“文档校验”上传</div>
           <el-checkbox-group v-model="selectedDocs" class="doc-picker">
             <el-checkbox v-for="d in docs" :key="d.id" :value="d.id">
-              {{ d.filename }}
-              <el-tag size="tiny" effect="plain" style="margin-left: 4px">{{ d.doc_type }}</el-tag>
+              <div class="doc-opt">
+                <span class="doc-opt-name">{{ d.filename }}</span>
+                <span class="doc-opt-meta">
+                  <el-tag size="tiny" effect="plain">{{ d.doc_type }}</el-tag>
+                  <span>{{ fmtTime(d.created_at) }}</span>
+                  <span>{{ fmtSize(d.size_bytes) }}</span>
+                </span>
+              </div>
             </el-checkbox>
           </el-checkbox-group>
         </el-form-item>
@@ -273,12 +279,37 @@ async function createGroup() {
   try {
     const g = await createCompareGroup(newName.value.trim(), selectedDocs.value)
     createVisible.value = false
-    ElMessage.success('比对组已创建')
+    ElMessage.success('比对组已创建，自动开始比对')
     await loadGroups()
     await selectGroup(g.id)
+    // 创建后自动触发比对（P1-1 修复：无需用户再手动点“触发比对”）
+    comparing.value = true
+    try {
+      await triggerCompare(g.id)
+      await pollUntilDone()
+    } finally {
+      comparing.value = false
+    }
   } finally {
     creating.value = false
   }
+}
+
+function cellSourceType(source: string): 'warning' | 'info' {
+  return source === 'llm' ? 'warning' : 'info'
+}
+function cellSourceLabel(source: string): string {
+  return source === 'llm' ? 'AI 提取' : '文本匹配'
+}
+function fmtTime(s: string | null): string {
+  if (!s) return ''
+  return new Date(s).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+function fmtSize(n: number): string {
+  if (n == null) return ''
+  if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`
+  if (n >= 1024) return `${Math.round(n / 1024)} KB`
+  return `${n} B`
 }
 
 onMounted(loadGroups)
@@ -366,5 +397,20 @@ onMounted(loadGroups)
   gap: 6px;
   max-height: 300px;
   overflow: auto;
+}
+.doc-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.doc-opt-name {
+  font-size: 13px;
+}
+.doc-opt-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: #909399;
 }
 </style>

@@ -10,31 +10,19 @@
       </el-col>
     </el-row>
 
+    <el-row :gutter="16" style="margin-top: 16px">
+      <el-col :span="8" v-for="step in steps" :key="step.title">
+        <el-card shadow="hover" class="step-card">
+          <div class="step-num">{{ step.num }}</div>
+          <div class="step-title">{{ step.title }}</div>
+          <div class="step-desc">{{ step.desc }}</div>
+          <el-button link type="primary" @click="router.push(step.to)">前往{{ step.action }}</el-button>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-card style="margin-top: 16px">
-      <template #header><b>建设路线（8 周公测版）</b></template>
-      <el-timeline>
-        <el-timeline-item timestamp="W1 · 已完成" type="success">
-          工程骨架：账号体系、权限、健康检查、一键 Docker 部署
-        </el-timeline-item>
-        <el-timeline-item timestamp="W2 · 已完成" type="success">
-          文档解析（docling/RapidOCR）+ Celery 异步队列 + 解析失败人工闸门
-        </el-timeline-item>
-        <el-timeline-item timestamp="W3 · 已完成" type="success">
-          格式规则引擎 + 错别字检查 + 意图漏斗 L1/L2 + 网页校验报告
-        </el-timeline-item>
-        <el-timeline-item timestamp="W4 · 已完成" type="success">
-          MVP：条款内容核查 + 报告增强 + Word 批注下载 + 对话助手（L3）
-        </el-timeline-item>
-        <el-timeline-item timestamp="W5 · 已完成" type="success">
-          交叉比对：字段抽取 + 文档内勾稽 + 跨文档比对矩阵（真实合同验收 515 份）
-        </el-timeline-item>
-        <el-timeline-item timestamp="W6 · 已完成" type="success">
-          规则包自定义（内置格式/条款/字段/勾稽包 + 上传/启停管理）+ bge 本地语义检索（0 token，pgvector Top-K + 相似文档）
-        </el-timeline-item>
-        <el-timeline-item timestamp="W7-W8 · 规划中">
-          自学习闭环、百份并发压测与开源发布
-        </el-timeline-item>
-      </el-timeline>
+      <template #header><b>使用提示</b></template>
       <el-alert
         title="AI 输出为辅助校对结果，不构成法律意见，正式文件请由专业人员复核。"
         type="warning"
@@ -67,9 +55,15 @@ const cards = computed(() => [
   { title: '上传批次', value: stats.value.groups, note: '批量受理记录', to: '/documents' },
   { title: '发现问题', value: stats.value.findings_total, note: '在文档校验报告中查看', to: '/documents' },
   { title: '规则包', value: stats.value.rule_packs, note: '内置+自定义，可启停', to: '/rules' },
-  { title: '已向量化', value: stats.value.embedded_docs, note: '文档已生成语义向量', to: '/search' },
-  { title: '语义分块', value: stats.value.chunks, note: '可参与语义检索', to: '/search' }
+  { title: '已建立智能索引', value: stats.value.embedded_docs, note: '文档可参与智能搜索', to: '/search' },
+  { title: '已智能拆解段落', value: stats.value.chunks, note: '供智能搜索定位原文', to: '/search' }
 ])
+
+const steps = [
+  { num: 1, title: '上传文档', desc: '支持 Word / PDF / 纯文本，一次最多 100 份，可自动识别文档类型。', action: '上传', to: '/documents' },
+  { num: 2, title: '查看校验报告', desc: '格式、错别字、条款完整性、金额一致性检查，结果可按级别筛选并标记处理。', action: '查看', to: '/documents' },
+  { num: 3, title: '深入核对', desc: '用文档助手提问、交叉比对多份文档、智能搜索相关条款，全程不消耗额外费用。', action: '使用', to: '/chat' }
+]
 
 onMounted(async () => {
   try {
@@ -84,6 +78,32 @@ onMounted(async () => {
 <style scoped>
 .stat-card {
   cursor: pointer;
+}
+.step-card {
+  height: 100%;
+}
+.step-num {
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  border-radius: 50%;
+  background: #409eff;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.step-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.step-desc {
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.6;
+  margin-bottom: 8px;
 }
 .card-title {
   color: #909399;

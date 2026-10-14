@@ -23,7 +23,11 @@ def list_users(
 
 @router.get("/settings")
 def read_settings(db: Session = Depends(get_db), _: User = Depends(require_admin)) -> dict:
-    return {"open_registration": setup_service.is_registration_open(db)}
+    return {
+        "open_registration": setup_service.is_registration_open(db),
+        "data_retention_days": setup_service.get_data_retention_days(db),
+        "llm_daily_quota": setup_service.get_llm_daily_quota(db),
+    }
 
 
 @router.patch("/settings")
@@ -36,4 +40,16 @@ def update_settings(
         setup_service.set_setting(
             db, setup_service.SETTING_OPEN_REGISTRATION, body.open_registration, updated_by=admin.id
         )
-    return {"open_registration": setup_service.is_registration_open(db)}
+    if body.data_retention_days is not None:
+        setup_service.set_setting(
+            db, setup_service.SETTING_DATA_RETENTION, body.data_retention_days, updated_by=admin.id
+        )
+    if body.llm_daily_quota is not None:
+        setup_service.set_setting(
+            db, setup_service.SETTING_LLM_QUOTA, body.llm_daily_quota, updated_by=admin.id
+        )
+    return {
+        "open_registration": setup_service.is_registration_open(db),
+        "data_retention_days": setup_service.get_data_retention_days(db),
+        "llm_daily_quota": setup_service.get_llm_daily_quota(db),
+    }

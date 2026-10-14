@@ -13,13 +13,16 @@
       />
       <el-form v-else ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="3-32 位，中英文/数字/下划线" />
+          <el-input v-model="form.username" placeholder="3-32 位，中英文/数字/下划线"
+            autocomplete="off" name="new-username" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" show-password placeholder="至少 8 位" />
+          <el-input v-model="form.password" type="password" show-password placeholder="至少 8 位"
+            autocomplete="new-password" name="new-password" @input="onPasswordChange" />
         </el-form-item>
         <el-form-item label="确认密码" prop="confirm">
-          <el-input v-model="form.confirm" type="password" show-password />
+          <el-input v-model="form.confirm" type="password" show-password
+            autocomplete="new-password" name="confirm-password" />
         </el-form-item>
         <el-button type="primary" :loading="loading" style="width: 100%" @click="submit">
           注册并登录
@@ -55,11 +58,16 @@ const rules: FormRules = {
   confirm: [
     {
       validator: (_rule, value, callback) => {
-        value === form.password ? callback() : callback(new Error('两次输入的密码不一致'))
+        value === form.password ? callback() : callback(new Error('两次输入的密码不一致，请检查“确认密码”'))
       },
-      trigger: 'blur'
+      trigger: ['blur', 'change']
     }
   ]
+}
+
+function onPasswordChange() {
+  // 修改密码后实时复查确认密码（P3-1：错误框随输入即时更新）
+  formRef.value?.validateField('confirm').catch(() => {})
 }
 
 async function submit() {

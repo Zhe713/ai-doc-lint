@@ -101,7 +101,7 @@ const statusLabel = (s: string): string =>
   ({ parsed: '已解析', failed: '解析失败', pending: '排队中', running: '解析中', awaiting: '待确认' })[s] ?? s
 
 const layerLabel = (l: string): string =>
-  ({ l1: 'L1 规则直答', l2: 'L2 上下文', l3: 'L3 工具检索' })[l] ?? l
+  ({ l1: '规则直答', l2: '结合上下文', l3: '智能检索' })[l] ?? l
 
 async function loadDocs() {
   docsLoading.value = true

@@ -29,10 +29,23 @@ export async function listDocuments(limit = 100): Promise<DocItem[]> {
   return data
 }
 
+export interface DocFlags {
+  continued_with_warning: boolean
+  checker_degraded: boolean
+  checker_warning_detail: unknown[]
+}
+
+export interface FindingsResult {
+  document_id: string
+  total: number
+  items: Finding[]
+  doc_flags?: DocFlags
+}
+
 export async function listFindings(
   docId: string,
   filters: { checker?: string; severity?: string; status?: string } = {}
-): Promise<{ document_id: string; total: number; items: Finding[] }> {
+): Promise<FindingsResult> {
   const { data } = await client.get(`/documents/${docId}/findings`, {
     params: filters
   })

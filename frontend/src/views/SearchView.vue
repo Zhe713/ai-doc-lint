@@ -2,14 +2,14 @@
   <div>
     <el-card shadow="never" style="margin-bottom: 16px">
       <div class="search-bar">
-        <el-input v-model="query" placeholder="输入语义问题，如：付款条款、违约责任、termination…"
+        <el-input v-model="query" placeholder="输入你想查的内容，如：付款条款、违约责任、合同期限…"
           size="large" clearable @keyup.enter="onSearch" />
         <el-button type="primary" size="large" :loading="searching" @click="onSearch">
           语义检索
         </el-button>
       </div>
       <div style="margin-top: 8px; color: #909399; font-size: 12px">
-        基于 pgvector 余弦相似度在已解析文档中检索相似条款/段落（本地 bge 模型，0 token）
+        在已解析的文档中智能搜索相似条款或段落，无需消耗额外费用
       </div>
     </el-card>
 

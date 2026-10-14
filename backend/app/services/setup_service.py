@@ -18,6 +18,8 @@ ROLE_DEFS = {
 }
 
 SETTING_OPEN_REGISTRATION = "open_registration"
+SETTING_DATA_RETENTION = "data_retention_days"
+SETTING_LLM_QUOTA = "llm_daily_quota"
 
 
 def ensure_roles(db: Session) -> dict[str, Role]:
@@ -60,6 +62,28 @@ def is_registration_open(db: Session) -> bool:
     if value is None:
         return settings.open_registration
     return bool(value)
+
+
+def get_data_retention_days(db: Session) -> int | None:
+    """数据保留期限（天）；None 表示不自动清理。"""
+    value = get_setting(db, SETTING_DATA_RETENTION)
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def get_llm_daily_quota(db: Session) -> int | None:
+    """每日智能审查调用限额；None 表示不限制。"""
+    value = get_setting(db, SETTING_LLM_QUOTA)
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def set_setting(db: Session, key: str, value, updated_by: uuid.UUID | None = None) -> None:

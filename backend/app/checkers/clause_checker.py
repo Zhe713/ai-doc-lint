@@ -11,6 +11,7 @@
 
 import json
 import logging
+import re
 
 from app.checkers.loader import load_clause_pack
 from app.db import storage
@@ -46,14 +47,17 @@ class ClauseChecker:
             self.collector.note_skipped("clause.check")
             return
 
+        self.text = storage.get_object_bytes(
+            artifact.storage_key
+        ).decode("utf-8", errors="replace")
+
+        # 金额大小写一致性勾稽：纯确定性、0 token（P1-4 修复）
+        self._check_amount_consistency()
+
         pack = load_clause_pack(self.document.doc_type)
         if not pack:
             self.collector.note_skipped("clause.check")
             return
-
-        self.text = storage.get_object_bytes(
-            artifact.storage_key
-        ).decode("utf-8", errors="replace")
 
         missing, uncertain = self._prescreen(pack)
         for clause in missing:
@@ -61,6 +65,90 @@ class ClauseChecker:
 
         if uncertain:
             self._judge_with_llm(uncertain)
+
+    # ---------------- 金额大小写勾稽（P1-4） ----------------
+
+    _CN_DIGIT = {
+        "零": 0, "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
+        "六": 6, "七": 7, "八": 8, "九": 9,
+        "壹": 1, "贰": 2, "叁": 3, "肆": 4, "伍": 5,
+        "陆": 6, "柒": 7, "捌": 8, "玖": 9,
+    }
+    _CN_UNIT = {
+        "十": 10, "拾": 10, "百": 100, "佰": 100,
+        "千": 1000, "仟": 1000, "万": 10000, "萬": 10000,
+        "亿": 100000000, "億": 100000000,
+    }
+    _CN_AMOUNT = re.compile(r"[壹贰叁肆伍陆柒捌玖拾佰仟万亿零]+(?:圆|元)")
+    _DIGIT_AMOUNT = re.compile(r"(\d[\d,，.]*)\s*(?:万元|万圆|元|圆)")
+    _AMOUNT_WINDOW = 200  # 大写金额与数字金额的配对搜索半径（字符）
+
+    @classmethod
+    def _cn_to_number(cls, s: str) -> float | None:
+        total = 0.0
+        section = 0.0
+        number = 0.0
+        for ch in s:
+            if ch in cls._CN_DIGIT:
+                number = float(cls._CN_DIGIT[ch])
+            elif ch in cls._CN_UNIT:
+                unit = cls._CN_UNIT[ch]
+                if unit >= 10000:
+                    section = (section + number) * unit
+                    total += section
+                    section = 0.0
+                else:
+                    section += (number if number else 1.0) * unit
+                number = 0.0
+            else:
+                return None
+        return total + section + number
+
+    def _check_amount_consistency(self) -> None:
+        cn_hits: list[tuple[float, int, str]] = []
+        for m in self._CN_AMOUNT.finditer(self.text):
+            num = self._cn_to_number(m.group(0)[:-1])
+            if num is not None:
+                cn_hits.append((num, m.start(), m.group(0)))
+        if not cn_hits:
+            return
+        digit_hits: list[tuple[float, int, str]] = []
+        for m in self._DIGIT_AMOUNT.finditer(self.text):
+            raw = m.group(1).replace(",", "").replace("，", "")
+            try:
+                val = float(raw)
+            except ValueError:
+                continue
+            if "万" in m.group(0):
+                val *= 10000
+            digit_hits.append((val, m.start(), m.group(0)))
+
+        reported: set[int] = set()
+        for cn_val, cn_pos, cn_text in cn_hits:
+            best = min(
+                digit_hits,
+                key=lambda d: abs(d[1] - cn_pos),
+                default=None,
+            )
+            if best is None or abs(best[1] - cn_pos) > self._AMOUNT_WINDOW:
+                continue
+            dig_val, dig_pos, dig_text = best
+            if abs(dig_val - cn_val) < 0.01:
+                continue
+            key = cn_pos // 500
+            if key in reported:
+                continue
+            reported.add(key)
+            snippet = self.text[max(0, cn_pos - 40): cn_pos + 120]
+            self.collector.add(
+                checker=self.checker, rule_id="clause.amount.consistency",
+                severity="error",
+                message=(
+                    f"金额大小写不一致：大写「{cn_text}」与小写「{dig_text}」不符"
+                ),
+                suggestion="核对合同金额，统一大小写后再签署",
+                location={"snippet": snippet},
+            )
 
     # ---------------- 规则预筛 ----------------
 

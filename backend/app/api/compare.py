@@ -97,6 +97,30 @@ def create_compare_group(
         db.add(CompareGroupDocument(
             compare_group_id=group.id, document_id=d.id, position=pos))
     db.commit()
+    db.refresh(group)
+
+    # P1-1：建组即自动入队，避免"创建后卡 pending 需手动触发"
+    first = db.execute(
+        select(CompareGroupDocument)
+        .where(CompareGroupDocument.compare_group_id == group.id)
+        .order_by(CompareGroupDocument.position)
+    ).scalars().first()
+    task = DocumentTask(
+        group_id=None,
+        document_id=first.document_id,
+        user_id=current.id,
+        task_type="cross_compare",
+        status=STATUS_PENDING,
+        max_attempts=1,
+        stats={"compare_group_id": str(group.id)},
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    group.status = STATUS_PENDING
+    db.commit()
+    enqueue_cross_compare(task.id)
+
     return _group_out(db, group)
 
 

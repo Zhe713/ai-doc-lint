@@ -20,6 +20,7 @@
           <div v-if="picked.length" style="margin-top: 8px">
             <el-tag v-for="f in picked" :key="f.uid" closable style="margin: 2px"
               @close="removePicked(f.uid)">{{ f.name }}</el-tag>
+            <el-button link type="danger" size="small" style="margin-left: 6px" @click="clearPicked">清空列表</el-button>
           </div>
           <el-divider content-position="left" style="margin: 12px 0 6px">校验选项</el-divider>
           <el-radio-group v-model="optDocType" size="small">
@@ -33,7 +34,7 @@
             <el-checkbox-group v-model="optChecks" size="small">
               <el-checkbox label="format">格式校验</el-checkbox>
               <el-checkbox label="typo">错别字</el-checkbox>
-              <el-checkbox label="clause">条款完整性（调用大模型）</el-checkbox>
+              <el-checkbox label="clause">深度条款审查（更慢但更准）</el-checkbox>
             </el-checkbox-group>
           </div>
           <el-button type="primary" style="margin-top: 10px; width: 100%" :loading="uploading"
@@ -59,12 +60,24 @@
             <el-progress :percentage="donePercent(g)" :stroke-width="8"
               :status="g.awaiting ? 'exception' : (g.failed ? 'warning' : (donePercent(g) === 100 ? 'success' : ''))" />
             <div class="group-counts">
-              <el-tag size="small" type="success">{{ g.succeeded }} 完成</el-tag>
-              <el-tag v-if="g.running" size="small" type="warning">{{ g.running }} 进行</el-tag>
-              <el-tag v-if="g.pending" size="small" type="info">{{ g.pending }} 排队</el-tag>
-              <el-tag v-if="g.awaiting" size="small" type="danger">{{ g.awaiting }} 待决策</el-tag>
-              <el-tag v-if="g.failed" size="small" type="danger">{{ g.failed }} 失败</el-tag>
-              <el-tag v-if="g.cancelled" size="small">{{ g.cancelled }} 取消</el-tag>
+              <el-tag size="small" type="success" class="count-tag"
+                :class="{ 'count-active': filterStatus === 'parsed' }"
+                @click="toggleFilter('parsed')">{{ g.succeeded }} 完成</el-tag>
+              <el-tag v-if="g.running" size="small" type="warning" class="count-tag"
+                :class="{ 'count-active': filterStatus === 'running' }"
+                @click="toggleFilter('running')">{{ g.running }} 进行</el-tag>
+              <el-tag v-if="g.pending" size="small" type="info" class="count-tag"
+                :class="{ 'count-active': filterStatus === 'pending' }"
+                @click="toggleFilter('pending')">{{ g.pending }} 排队</el-tag>
+              <el-tag v-if="g.awaiting" size="small" type="danger" class="count-tag"
+                :class="{ 'count-active': filterStatus === 'awaiting_decision' }"
+                @click="toggleFilter('awaiting_decision')">{{ g.awaiting }} 待决策</el-tag>
+              <el-tag v-if="g.failed" size="small" type="danger" class="count-tag"
+                :class="{ 'count-active': filterStatus === 'failed' }"
+                @click="toggleFilter('failed')">{{ g.failed }} 失败</el-tag>
+              <el-tag v-if="g.cancelled" size="small" class="count-tag"
+                :class="{ 'count-active': filterStatus === 'cancelled' }"
+                @click="toggleFilter('cancelled')">{{ g.cancelled }} 取消</el-tag>
             </div>
           </div>
         </el-card>
@@ -84,12 +97,17 @@
             </div>
           </template>
           <el-empty v-if="!tasks.length" description="选择左侧批次查看明细" />
-          <el-table v-else :data="tasks" size="small" :row-class-name="rowClass">
-            <el-table-column label="文件" prop="filename" min-width="180" show-overflow-tooltip />
-            <el-table-column label="状态" width="120">
+          <el-table v-else :data="filteredTasks" size="small" :row-class-name="rowClass">
+            <el-table-column label="文件" min-width="210" show-overflow-tooltip>
               <template #default="{ row }">
-                <el-tag :type="statusType(row.status)" size="small">
-                  {{ statusLabel(row.status) }}
+                <div>{{ row.filename }}</div>
+                <div class="muted file-meta">{{ fmtTime(row.created_at) }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="130">
+              <template #default="{ row }">
+                <el-tag :type="statusType(row)" size="small">
+                  {{ statusLabel(row) }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -111,6 +129,7 @@
                 <el-button v-if="row.status === 'awaiting_decision'" size="small" type="danger"
                   @click="openGate(row)">去决策</el-button>
                 <el-button v-if="row.status === 'parsed'" size="small" type="primary"
+                  :title="`查看「${row.filename}」的报告`"
                   @click="openReport(row)">查看报告</el-button>
                 <el-button v-if="row.status === 'parsed'" size="small" @click="openPreview(row)">预览文本</el-button>
                 <el-button v-if="['pending', 'running'].includes(row.status)" size="small"
@@ -123,17 +142,24 @@
     </el-row>
 
     <!-- 闸门弹窗 -->
-    <el-dialog v-model="gateVisible" title="解析需要你的决定" width="520px">
+    <el-dialog v-model="gateVisible" title="解析需要你的决定" width="560px">
       <el-result v-if="gateTask" :icon="gateIcon(gateTask.gate_reason)" :title="gateLabel(gateTask.gate_reason)"
         :sub-title="gateSub(gateTask)">
         <template #extra>
-          <el-space wrap>
-            <el-button type="primary" :loading="deciding"
-              @click="decide('retry_ocr')">OCR 重新识别</el-button>
-            <el-button type="warning" :loading="deciding"
-              @click="decide('continue_with_warnings')">带警告继续</el-button>
-            <el-button :loading="deciding" @click="decide('cancel')">取消，重新上传</el-button>
-          </el-space>
+          <div style="width: 100%">
+            <el-space wrap>
+              <el-button type="primary" :loading="deciding"
+                @click="decide('retry_ocr')">OCR 重新识别</el-button>
+              <el-button type="warning" :loading="deciding"
+                @click="decide('continue_with_warnings')">带警告继续</el-button>
+              <el-button :loading="deciding" @click="decide('cancel')">取消，重新上传</el-button>
+            </el-space>
+            <div class="gate-tips">
+              <p><b>OCR 重新识别</b>：用 OCR 重新解析这份文件，耗时较长，但能尽量还原扫描件内容。</p>
+              <p><b>带警告继续</b>：按当前结果继续，报告中可能缺失内容或存在识别偏差，结果仅供辅助参考。</p>
+              <p><b>取消，重新上传</b>：取消本次任务并丢弃该文件，请准备好清晰文件后重新上传。</p>
+            </div>
+          </div>
         </template>
       </el-result>
     </el-dialog>
@@ -207,6 +233,18 @@ function onPick(_file: UploadFile, files: UploadFiles) {
 function removePicked(uid: number) {
   picked.value = picked.value.filter((f) => f.uid !== uid)
 }
+function clearPicked() {
+  picked.value = []
+  uploadRef.value?.clearFiles()
+}
+
+const filterStatus = ref('')
+function toggleFilter(s: string) {
+  filterStatus.value = filterStatus.value === s ? '' : s
+}
+const filteredTasks = computed(() =>
+  filterStatus.value ? tasks.value.filter((t) => t.status === filterStatus.value) : tasks.value
+)
 
 async function doUpload() {
   const bad = picked.value.find((f) => f.name.toLowerCase().endsWith('.doc'))
@@ -306,7 +344,8 @@ function donePercent(g: TaskGroup) {
   const settled = g.succeeded + g.failed + g.cancelled
   return Math.round((settled / Math.max(g.total, 1)) * 100)
 }
-function statusType(s: string) {
+function statusType(row: TaskItem) {
+  if (row.status === 'parsed' && hasWarningContinue(row)) return 'danger'
   return ({
     pending: 'info',
     running: 'warning',
@@ -315,9 +354,10 @@ function statusType(s: string) {
     parsed: 'success',
     failed: 'danger',
     cancelled: 'info'
-  } as Record<string, string>)[s] || 'info'
+  } as Record<string, string>)[row.status] || 'info'
 }
-function statusLabel(s: string) {
+function statusLabel(row: TaskItem) {
+  if (row.status === 'parsed' && hasWarningContinue(row)) return '带警告完成'
   return ({
     pending: '排队中',
     running: '解析中',
@@ -326,7 +366,12 @@ function statusLabel(s: string) {
     parsed: '已完成',
     failed: '失败',
     cancelled: '已取消'
-  } as Record<string, string>)[s] || s
+  } as Record<string, string>)[row.status] || row.status
+}
+/** 该任务是否经「带警告继续」完成：结果可能缺失内容，须保留警示 */
+function hasWarningContinue(row: TaskItem) {
+  return Array.isArray(row.warnings) &&
+    row.warnings.some((w) => (w as { code?: string })?.code === 'user_continued_with_warning')
 }
 function gateLabel(reason: string | null) {
   return ({
@@ -391,6 +436,34 @@ onUnmounted(() => pollTimer && window.clearInterval(pollTimer))
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+}
+.count-tag {
+  cursor: pointer;
+  user-select: none;
+}
+.count-active {
+  outline: 2px solid #409eff;
+  outline-offset: 1px;
+}
+.file-meta {
+  font-size: 11px;
+  line-height: 1.4;
+}
+.gate-tips {
+  margin-top: 12px;
+  text-align: left;
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.7;
+  background: #f5f7fa;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.gate-tips p {
+  margin: 4px 0;
+}
+.gate-tips b {
+  color: #303133;
 }
 .ws-state {
   font-size: 12px;
