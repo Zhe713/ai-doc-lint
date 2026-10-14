@@ -75,6 +75,8 @@ services:
     volumes:
       - modelcache:/home/appuser/.cache
       - modelcache:/home/appuser/.pycorrector
+      # W7：规则目录以宿主持久化（typo 自动白名单可回滚、可编辑）
+      - ./backend/app/checkers/rules:/app/app/checkers/rules
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
       interval: 10s
@@ -122,6 +124,7 @@ services:
     volumes:
       - modelcache:/home/appuser/.cache
       - modelcache:/home/appuser/.pycorrector
+      - ./backend/app/checkers/rules:/app/app/checkers/rules
     networks:
       - aidocnet
 
@@ -150,6 +153,8 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
+    volumes:
+      - ./backend/app/checkers/rules:/app/app/checkers/rules
     networks:
       - aidocnet
 

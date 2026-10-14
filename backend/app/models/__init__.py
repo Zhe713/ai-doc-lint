@@ -8,6 +8,8 @@ from app.models.document import (
     Document,
     DocumentTask,
     IntentRoute,
+    LearningLog,
+    LearningSuggestion,
     TaskEvent,
     TaskGroup,
 )
@@ -38,6 +40,8 @@ __all__ = [
     "Artifact",
     "IntentRoute",
     "CheckFinding",
+    "LearningLog",
+    "LearningSuggestion",
     "RulePack",
     "DocumentChunk",
     "ChatSession",

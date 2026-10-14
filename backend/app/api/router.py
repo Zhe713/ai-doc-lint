@@ -12,6 +12,7 @@ from app.api import (
     documents,
     findings,
     health,
+    learning,
     rules,
     search,
     setup,
@@ -24,6 +25,7 @@ api_router.include_router(setup.router)
 api_router.include_router(auth.router)
 api_router.include_router(users.router)
 api_router.include_router(admin.router)
+api_router.include_router(learning.router)
 api_router.include_router(documents.router)
 api_router.include_router(compare.router)
 api_router.include_router(rules.router)

@@ -26,6 +26,7 @@ celery_app = Celery(
         "app.tasks.annotate",
         "app.tasks.cross_compare",
         "app.tasks.embed",
+        "app.tasks.learning",
     ],
 )
 
@@ -60,6 +61,7 @@ celery_app.conf.task_routes = {
     "app.tasks.annotate.run_annotate": {"queue": QUEUE_ANNOTATE},
     "app.tasks.cross_compare.run_cross_compare": {"queue": QUEUE_CROSS_COMPARE},
     "app.tasks.embed.run_embed": {"queue": QUEUE_EMBED},
+    "app.tasks.learning.run_daily_tuning": {"queue": QUEUE_LEARN},
 }
 
 celery_app.conf.beat_schedule = {
@@ -67,5 +69,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.reaper.reap_stalled",
         "schedule": settings.stalled_timeout_seconds / 2,
         "options": {"queue": QUEUE_PARSE},
+    },
+    # W7 每日学习诊断：凌晨 02:10 自动调优（白名单扩充 + 停用建议）
+    "learning-daily-tuning": {
+        "task": "app.tasks.learning.run_daily_tuning",
+        "schedule": 86400.0,  # 每日一次；首次触发后按周期滚动
+        "options": {"queue": QUEUE_LEARN},
     },
 }

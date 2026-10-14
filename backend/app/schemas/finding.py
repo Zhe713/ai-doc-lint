@@ -19,11 +19,14 @@ class FindingOut(BaseModel):
     message: str
     suggestion: str | None
     status: str
+    feedback_reason: str | None = None
     created_at: datetime
 
 
 class FindingPatch(BaseModel):
     status: str  # open / ignored / fixed
+    # W7 反馈采集：false_positive（误报）/ confirmed（确认有效）/ fixed_by_user（已修复）
+    feedback_reason: str | None = None
 
 
 class DocumentOut(BaseModel):

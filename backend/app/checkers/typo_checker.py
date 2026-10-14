@@ -21,12 +21,16 @@ MAX_FINDINGS = 50
 
 @functools.lru_cache(maxsize=1)
 def _load_whitelist() -> tuple[str, ...]:
-    path = RULES_DIR / "typo_whitelist.txt"
-    words = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line and not line.startswith("#"):
-            words.append(line)
+    """合并加载内置白名单 + W7 自动扩充白名单（auto 文件可一键回滚）。"""
+    words: list[str] = []
+    for name in ("typo_whitelist.txt", "typo_whitelist_auto.txt"):
+        path = RULES_DIR / name
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                words.append(line)
     return tuple(words)
 
 

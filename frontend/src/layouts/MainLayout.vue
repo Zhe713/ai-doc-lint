@@ -27,6 +27,7 @@
             <el-icon><Setting /></el-icon><span>系统管理</span>
           </template>
           <el-menu-item index="/admin/users">用户管理</el-menu-item>
+          <el-menu-item index="/admin/learning">学习反馈</el-menu-item>
           <el-menu-item index="/admin/settings">系统设置</el-menu-item>
         </el-sub-menu>
       </el-menu>

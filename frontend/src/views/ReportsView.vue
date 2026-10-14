@@ -65,12 +65,13 @@
           <el-tag v-else size="small" type="success">已修复</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="170">
+      <el-table-column label="操作" width="240">
         <template #default="{ row }">
           <el-button v-if="row.status !== 'fixed'" link type="success"
-                     @click="change(row, 'fixed')">标已修复</el-button>
-          <el-button v-if="row.status !== 'ignored'" link type="info"
-                     @click="change(row, 'ignored')">忽略</el-button>
+                     @click="change(row, 'fixed', 'fixed_by_user')">标已修复</el-button>
+          <el-button v-if="row.status !== 'ignored'" link type="warning"
+                     @click="markFalsePositive(row)">误报</el-button>
+          <el-button link type="primary" @click="markConfirmed(row)">确认</el-button>
           <el-button v-if="row.status !== 'open'" link @click="change(row, 'open')">重开</el-button>
         </template>
       </el-table-column>
@@ -110,7 +111,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Finding, listFindings, setFindingStatus } from '@/api/findings'
 import { downloadAnnotated, requestAnnotated } from '@/api/annotate'
 import { createChatSession, streamChat } from '@/api/chat'
@@ -159,10 +160,35 @@ async function reload() {
   }
 }
 
-async function change(row: Finding, status: 'open' | 'ignored' | 'fixed') {
-  await setFindingStatus(row.id, status)
+async function change(
+  row: Finding,
+  status: 'open' | 'ignored' | 'fixed',
+  feedback_reason?: 'false_positive' | 'confirmed' | 'fixed_by_user'
+) {
+  await setFindingStatus(row.id, status, feedback_reason)
   ElMessage.success('状态已更新')
   await reload()
+}
+
+// W7：误报反馈（负例）——确认后加入学习闭环
+async function markFalsePositive(row: Finding) {
+  try {
+    await ElMessageBox.confirm(
+      '将本条问题标记为误报，系统会学习此反馈并降低同类误报。确认继续？',
+      '标记误报',
+      { confirmButtonText: '确认误报', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+  await change(row, 'ignored', 'false_positive')
+  ElMessage.success('已记录误报反馈')
+}
+
+// W7：确认有效（正例）——补充学习信号
+async function markConfirmed(row: Finding) {
+  await change(row, 'open', 'confirmed')
+  ElMessage.success('已记录，谢谢反馈')
 }
 
 const annotating = ref(false)

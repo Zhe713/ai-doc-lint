@@ -107,6 +107,9 @@ def patch_finding(
             status_code=422, detail=f"非法状态，可选：{', '.join(FINDING_STATUSES)}"
         )
     finding.status = body.status
+    # W7 反馈采集：reason 仅在明确反馈时写入（误报/确认有效/已修复）
+    if body.feedback_reason:
+        finding.feedback_reason = body.feedback_reason
     db.commit()
     db.refresh(finding)
     return finding

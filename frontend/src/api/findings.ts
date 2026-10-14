@@ -11,6 +11,7 @@ export interface Finding {
   message: string
   suggestion: string | null
   status: string
+  feedback_reason: string | null
   created_at: string
 }
 
@@ -52,10 +53,83 @@ export async function listFindings(
   return data
 }
 
+export type FindingStatus = 'open' | 'ignored' | 'fixed'
+export type FeedbackReason = 'false_positive' | 'confirmed' | 'fixed_by_user' | null
+
 export async function setFindingStatus(
   id: number,
-  status: 'open' | 'ignored' | 'fixed'
+  status: FindingStatus,
+  feedback_reason?: FeedbackReason
 ): Promise<Finding> {
-  const { data } = await client.patch(`/findings/${id}`, { status })
+  const { data } = await client.patch(`/findings/${id}`, {
+    status,
+    ...(feedback_reason ? { feedback_reason } : {})
+  })
+  return data
+}
+
+// ---------- W7 学习闭环 ----------
+
+export interface FeedbackStat {
+  checker: string
+  rule_id: string
+  hit_count: number
+  false_count: number
+  confirmed_count: number
+  false_rate: number
+  last_feedback_at: string | null
+}
+
+export interface SuggestionItem {
+  id: number
+  checker: string
+  rule_id: string
+  reason: string
+  hit_count: number
+  false_count: number
+  false_rate: number
+  status: string
+  created_at: string | null
+  resolved_at: string | null
+}
+
+export interface LearningLogItem {
+  id: number
+  action: string
+  detail: Record<string, unknown> | null
+  created_at: string | null
+}
+
+export interface TuningSummary {
+  ok: boolean
+  trigger: string
+  whitelist_added: number
+  whitelist_total: number
+  suggested_rules: string[]
+  at: string
+}
+
+export async function getLearningFeedback(): Promise<FeedbackStat[]> {
+  const { data } = await client.get('/admin/learning/feedback')
+  return data.items
+}
+
+export async function getLearningSuggestions(status = 'pending'): Promise<SuggestionItem[]> {
+  const { data } = await client.get('/admin/learning/suggestions', { params: { status } })
+  return data.items
+}
+
+export async function decideSuggestion(id: number, action: 'confirm' | 'reject'): Promise<{ ok: boolean; disabled_pack: string | null }> {
+  const { data } = await client.post(`/admin/learning/suggestions/${id}/decision`, { action })
+  return data
+}
+
+export async function getLearningLogs(limit = 50): Promise<LearningLogItem[]> {
+  const { data } = await client.get('/admin/learning/logs', { params: { limit } })
+  return data.items
+}
+
+export async function runTuningManually(): Promise<TuningSummary> {
+  const { data } = await client.post('/admin/learning/run-tuning')
   return data
 }

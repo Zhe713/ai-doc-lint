@@ -267,6 +267,8 @@ class CheckFinding(Base, TimestampMixin):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     suggestion: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(12), nullable=False, default=FINDING_OPEN)
+    # W7 反馈采集：false_positive（误报）/ confirmed（确认有效）/ fixed_by_user（已修复）
+    feedback_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
 
 # ---- 字段抽取与交叉比对（W5） ----
@@ -360,3 +362,55 @@ class CompareGroupDocument(Base):
         nullable=False, index=True,
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+# ---- W7 自学习闭环 ----
+
+LEARNING_ACTION_WHITELIST_ADD = "whitelist_add"
+LEARNING_ACTION_RULE_SUGGEST = "rule_suggest"
+LEARNING_ACTION_SUGGESTION_CONFIRM = "suggestion_confirm"
+LEARNING_ACTION_SUGGESTION_REJECT = "suggestion_reject"
+LEARNING_ACTION_TUNING = "tuning_run"  # daily / manual
+LEARNING_ACTION_REGRESSION = "regression"
+
+SUGGESTION_PENDING = "pending"
+SUGGESTION_CONFIRMED = "confirmed"
+SUGGESTION_REJECTED = "rejected"
+
+
+class LearningLog(Base, TimestampMixin):
+    """W7 学习闭环操作留痕：每一次自动/手动调优动作都可追溯。"""
+
+    __tablename__ = "learning_logs"
+    __table_args__ = (
+        Index("ix_learning_logs_action", "action"),
+        Index("ix_learning_logs_created", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    # {rule_id, words, count, reason, trigger, prev/after, ...}
+    detail: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
+class LearningSuggestion(Base, TimestampMixin):
+    """W7 规则停用建议（人工闸门）：误报率超阈值的规则挂起，管理员确认后停用。"""
+
+    __tablename__ = "learning_suggestions"
+    __table_args__ = (
+        Index("ix_learning_suggestions_status", "status"),
+        Index("ix_learning_suggestions_rule", "checker", "rule_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    checker: Mapped[str] = mapped_column(String(16), nullable=False)
+    rule_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    false_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    false_rate: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0)
+    status: Mapped[str] = mapped_column(String(12), nullable=False,
+                                        default=SUGGESTION_PENDING)
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)

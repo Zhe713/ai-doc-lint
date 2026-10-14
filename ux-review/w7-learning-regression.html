@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W7 自学习闭环回归报告</title>
+<style>
+body{font-family:'Microsoft YaHei',sans-serif;margin:0;background:#f5f7fa;color:#303133}
+.wrap{max-width:960px;margin:0 auto;padding:24px}
+h1{font-size:22px}h2{font-size:16px;margin-top:24px}
+.card{background:#fff;border-radius:8px;padding:20px;margin-top:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border:1px solid #e4e7ed;padding:6px 10px;text-align:left}
+th{background:#f0f2f5}
+.kpi{display:flex;gap:16px;flex-wrap:wrap}
+.kpi div{flex:1;min-width:140px;background:#f0f9ff;border-radius:8px;padding:14px;text-align:center}
+.kpi b{display:block;font-size:24px;color:#1989fa}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;background:#ecf5ff;color:#409eff;margin:2px}
+.ok{color:#67c23a} .warn{color:#e6a23c} .danger{color:#f56c6c}
+</style></head><body><div class="wrap">
+<h1>W7 自学习闭环回归报告</h1>
+<div class="card">
+<b>本次调优（manual）</b>：
+新增白名单词 <b class="ok">0</b> 个（累计 1），
+建议停用规则 <b class="warn">0</b> 条。
+<div class="tag" style="margin-top:8px">回滚方式：删除 rules/typo_whitelist_auto.txt 即可完全回退白名单扩充</div>
+</div>
+<h2>golden 回归对比（40 份真实合同）</h2>
+<div class="card"><div class="kpi">
+<div><b>40</b>参与回归文档</div>
+<div><b>8</b>调优前 typo 发现</div>
+<div><b>6</b>白名单过滤后预估</div>
+<div><b class="ok">-2</b>预计减少误报</div>
+</div>
+<div style="margin-top:12px">受影响词（进入白名单后不再报）：<span class="tag">签定</span></div>
+</div>
+<h2>反馈统计</h2>
+<div class="card"><table><tr><th>检查器</th><th>规则</th><th>命中</th><th>误报</th><th>确认</th><th>误报率</th></tr><tr><td>typo</td><td>typo.correction</td><td>1</td><td>1</td><td>0</td><td>100.0%</td></tr></table></div>
+<h2>停用建议（待确认）</h2>
+<div class="card"><table><tr><th>检查器</th><th>规则</th><th>误报情况</th><th>原因</th><th>状态</th></tr><tr><td colspan="5">无待确认建议</td></tr></table></div>
+<h2>学习日志</h2>
+<div class="card"><table><tr><th>时间</th><th>动作</th><th>详情</th></tr><tr><td>2026-10-14 08:13:56</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 0, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:07:36</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 0, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:05:17</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 1, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:05:17</td><td>whitelist_add</td><td>{"file": "typo_whitelist_auto.txt", "added": 1, "total": 1, "words": ["签定"], "trigger": "manual", "rollback": "删除该文件即可回滚"}</td></tr></table></div>
+</div></body></html>

@@ -1,0 +1,112 @@
+{
+  "steps": [
+    {
+      "step": "feedback_inject",
+      "doc": "trans_04_城市供用水合同.pdf",
+      "count": 1,
+      "words": [
+        "签定"
+      ]
+    },
+    {
+      "step": "run_tuning",
+      "summary": {
+        "ok": true,
+        "trigger": "manual",
+        "whitelist_added": 0,
+        "whitelist_total": 1,
+        "suggested_rules": [],
+        "at": "2026-10-14T08:13:56.950227+00:00"
+      }
+    }
+  ],
+  "tuning": {
+    "ok": true,
+    "trigger": "manual",
+    "whitelist_added": 0,
+    "whitelist_total": 1,
+    "suggested_rules": [],
+    "at": "2026-10-14T08:13:56.950227+00:00"
+  },
+  "feedback": {
+    "items": [
+      {
+        "checker": "typo",
+        "rule_id": "typo.correction",
+        "hit_count": 1,
+        "false_count": 1,
+        "confirmed_count": 0,
+        "false_rate": 1.0,
+        "last_feedback_at": "2026-10-14T08:03:19.776681+00:00"
+      }
+    ]
+  },
+  "suggestions": {
+    "items": []
+  },
+  "logs": {
+    "items": [
+      {
+        "id": 4,
+        "action": "tuning_run",
+        "detail": {
+          "by": "8825f92a-3258-457c-99b0-9a9723f94d67",
+          "trigger": "manual",
+          "suggested_rules": [],
+          "whitelist_added": 0,
+          "whitelist_total": 1
+        },
+        "created_at": "2026-10-14T08:13:56.951103+00:00"
+      },
+      {
+        "id": 3,
+        "action": "tuning_run",
+        "detail": {
+          "by": "8825f92a-3258-457c-99b0-9a9723f94d67",
+          "trigger": "manual",
+          "suggested_rules": [],
+          "whitelist_added": 0,
+          "whitelist_total": 1
+        },
+        "created_at": "2026-10-14T08:07:36.951052+00:00"
+      },
+      {
+        "id": 2,
+        "action": "tuning_run",
+        "detail": {
+          "by": "8825f92a-3258-457c-99b0-9a9723f94d67",
+          "trigger": "manual",
+          "suggested_rules": [],
+          "whitelist_added": 1,
+          "whitelist_total": 1
+        },
+        "created_at": "2026-10-14T08:05:17.524011+00:00"
+      },
+      {
+        "id": 1,
+        "action": "whitelist_add",
+        "detail": {
+          "file": "typo_whitelist_auto.txt",
+          "added": 1,
+          "total": 1,
+          "words": [
+            "签定"
+          ],
+          "trigger": "manual",
+          "rollback": "删除该文件即可回滚"
+        },
+        "created_at": "2026-10-14T08:05:17.524011+00:00"
+      }
+    ]
+  },
+  "regression": {
+    "golden_checked": 40,
+    "typo_before": 8,
+    "typo_after_filter": 6,
+    "typo_reduced": 2,
+    "auto_whitelist_words": 1,
+    "affected_words": [
+      "签定"
+    ]
+  }
+}
