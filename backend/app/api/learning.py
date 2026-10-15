@@ -190,6 +190,11 @@ def decide_suggestion(
                 "by": str(admin.id),
             },
         ))
+        # W8 审计：规则停用操作留痕
+        from app.services.audit_service import write_audit
+
+        write_audit(db, action="rule_decision", user_id=admin.id, username=admin.username,
+                    target=s.rule_id, detail={"decision": "confirm", "checker": s.checker})
         db.commit()
         return {"ok": True, "disabled_pack": disabled_name}
     if body.action == "reject":
@@ -204,6 +209,11 @@ def decide_suggestion(
                 "by": str(admin.id),
             },
         ))
+        # W8 审计：规则建议拒绝留痕
+        from app.services.audit_service import write_audit
+
+        write_audit(db, action="rule_decision", user_id=admin.id, username=admin.username,
+                    target=s.rule_id, detail={"decision": "reject", "checker": s.checker})
         db.commit()
         return {"ok": True}
     raise HTTPException(status_code=422, detail="动作仅支持 confirm / reject")
@@ -241,6 +251,7 @@ def run_tuning(
     admin: User = Depends(require_admin),
 ) -> dict:
     """手动触发一次调优（立即执行，前台同步等结果）。"""
+    from app.services.audit_service import write_audit
     from app.tasks.learning import run_daily_tuning
 
     try:
@@ -248,4 +259,9 @@ def run_tuning(
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         raise HTTPException(status_code=500, detail=f"调优执行失败：{type(exc).__name__}: {exc}")
+    # W8 审计：学习诊断留痕
+    write_audit(db, action="learning_tuning", user_id=admin.id, username=admin.username,
+                detail={"whitelist_added": summary.get("whitelist_added", 0),
+                        "whitelist_pending": summary.get("whitelist_pending", [])})
+    db.commit()
     return summary

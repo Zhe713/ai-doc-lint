@@ -54,6 +54,17 @@ def _ext(filename: str) -> str:
     return filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
 
+# W8：文件头（魔数）校验 - 防改名伪装的可执行文件/损坏文件以白名单扩展名混入
+def _magic_mismatch(ext: str, data: bytes) -> bool:
+    if ext == "pdf":
+        return not data[:5].startswith(b"%PDF-")
+    if ext == "docx":
+        # docx 为 zip 容器：PK\x03\x04（常规）或 PK\x05\x06（空 zip）
+        return not (data[:2] == b"PK" and data[2:4] in (b"\x03\x04", b"\x05\x06"))
+    # txt/md 无强魔数，仅依赖扩展名白名单
+    return False
+
+
 def _pending_count(db: Session, user_id: uuid.UUID) -> int:
     return db.execute(
         select(func.count(DocumentTask.id)).where(
@@ -159,6 +170,12 @@ async def upload_documents(
             raise HTTPException(status_code=422, detail=f"空文件：{f.filename}")
         if len(data) > 200 * 1024 * 1024:
             raise HTTPException(status_code=422, detail=f"文件超过 200MB：{f.filename}")
+        # W8：魔数校验（内容与扩展名不符 → 拒收，避免伪装/损坏文件进入流水线）
+        if _magic_mismatch(ext, data):
+            raise HTTPException(
+                status_code=422,
+                detail=f"文件内容与 .{ext} 格式不符，可能已损坏或为伪装文件：{f.filename}。请检查后重新上传。",
+            )
 
         digest = hashlib.sha256(data).hexdigest()
         key = f"docs/{current.id}/{uuid.uuid4().hex}/{f.filename}"
@@ -198,6 +215,13 @@ async def upload_documents(
         db.flush()
         created.append(UploadedTaskOut(task_id=task.id, document_id=doc.id, filename=doc.filename, status=task.status))
 
+    # W8 审计：上传批次留痕
+    from app.services.audit_service import write_audit
+
+    write_audit(
+        db, action="upload_batch", user_id=current.id, username=current.username,
+        target=str(group.id), detail={"count": len(created), "doc_type": doc_type},
+    )
     db.commit()
     for item in created:
         enqueue_parse(item.task_id)

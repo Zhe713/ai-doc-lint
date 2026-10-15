@@ -65,6 +65,9 @@ def _install_fake(monkeypatch):
 
 
 def _upload_one(client, headers, name, content=b"data"):
+    # W8 魔数校验后：模拟损坏 PDF 需保留 %PDF- 文件头（内容损坏在解析阶段暴露，走人工闸门）
+    if name.lower().endswith(".pdf") and not content.startswith(b"%PDF-"):
+        content = b"%PDF-1.4 " + content
     resp = client.post(
         "/api/v1/documents/upload",
         files={"files": (name, content, "application/octet-stream")},

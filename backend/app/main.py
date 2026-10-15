@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.health import router as health_router
+from app.api.monitoring import install_metrics, router as monitoring_router
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.storage import ensure_bucket
@@ -48,7 +49,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# W8：Prometheus 指标采集中间件（进程内计数，无敏感内容）
+install_metrics(app)
+
 app.include_router(health_router)
+app.include_router(monitoring_router)
 app.include_router(api_router)
 
 

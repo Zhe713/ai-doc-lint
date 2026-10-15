@@ -30,23 +30,46 @@ def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)) 
         from fastapi import HTTPException
 
         raise HTTPException(status_code=exc.status_code, detail=exc.message)
+    # W8 审计：注册留痕
+    from app.services.audit_service import write_audit
+
+    write_audit(db, action="register", username=user.username, ip=_client_ip(request))
+    db.commit()
     return auth_service.user_public(user)
 
 
 @router.post("/login", response_model=TokenOut)
 def login(body: LoginIn, request: Request, db: Session = Depends(get_db)) -> TokenOut:
+    ip = _client_ip(request)
     try:
         tokens = auth_service.login(
             db,
             body.username,
             body.password,
             request.headers.get("user-agent"),
-            _client_ip(request),
+            ip,
         )
     except auth_service.AuthError as exc:
         from fastapi import HTTPException
 
+        # W8 审计：登录失败留痕（不记密码）
+        from app.services.audit_service import write_audit
+
+        write_audit(
+            db, action="login_fail", username=body.username,
+            detail={"reason": exc.message}, ip=ip,
+        )
+        db.commit()
         raise HTTPException(status_code=exc.status_code, detail=exc.message)
+    # W8 审计：登录成功留痕
+    from sqlalchemy import select
+
+    from app.services.audit_service import write_audit
+
+    user = db.execute(select(User).where(User.username == body.username)).scalar_one_or_none()
+    write_audit(db, action="login_success", user_id=user.id if user else None,
+                username=body.username, ip=ip)
+    db.commit()
     return TokenOut(**tokens)
 
 
