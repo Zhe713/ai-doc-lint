@@ -5,17 +5,33 @@
 >
 > 数据全部留在部署方本地；大模型采用 BYOK（自带密钥，通过环境变量注入），项目本身不收集任何数据。
 
-## 当前进度
+## 当前进度（W1-W7-5 已完成，W8 监控与安全已上线）
 
-- **W1**：一键启动的工程骨架 —— PostgreSQL 18 + pgvector、Valkey 9、MinIO、FastAPI、Vue3 前端；
-  首次启动初始化管理员、注册开关、用户名密码登录（JWT 双令牌）、两级 RBAC、登录失败限流、健康检查。
-- **W2（本版本）**：Celery 异步任务体系（parse/review/annotate/learn 四队列 + Beat 定时巡检）；
+- **W1 工程骨架**：一键 Docker 部署栈（PostgreSQL 18 + pgvector、Valkey 9、MinIO、FastAPI、Vue3 前端）；
+  初始化管理员、开放注册开关、用户名密码登录（JWT 双令牌）、两级 RBAC（管理员/成员）、登录失败限流、健康检查。
+- **W2 异步任务体系**：Celery 四队列（parse/review/annotate/learn）+ Beat 定时巡检；
   批量上传受理（单批最多 100 份、在途配额、sha256 去重、.doc 老格式明确拒绝）；
-  解析流水线（txt/md 直解、pdfium 零成本文本探测、docling 结构化抽取、扫描件 RapidOCR 兜底，
-  docling 不可用时自动回退 pdfium，离线可用）；
-  人工闸门三选一（OCR 重试 / 带警告继续 / 取消）；WebSocket + 轮询双通道实时进度；
-  卡死任务巡检与断电/重启自动对账恢复。
-- W3 起：格式规则、错别字检查、意图漏斗 L1/L2 流水线路由、校验报告。
+  解析流水线（txt/md 直解、pdfium 文本探测、docling 结构化抽取、扫描件 RapidOCR 兜底，离线可用）；
+  人工闸门三选一（OCR 重试 / 带警告继续 / 取消）；WebSocket + 轮询双通道实时进度；卡死任务巡检与断电恢复。
+- **W3 校验核心**：格式检查器 + YAML 规则包；错别字检查器（混淆集/白名单/降级）；
+  意图漏斗 L1/L2 流水线路由与落库；校验报告（发现列表、筛选、状态流转）。
+- **W4 报告与批注**：规则预筛 + 批量 LLM 条款检查（引用防幻觉）；原生 docx 批注 + 检查清单下载；
+  报告对话助手（三层意图漏斗 SSE）；LLM 客户端基座（重试/熔断/限流/用量日志）。
+- **W5 交叉比对**：文档内勾稽（金额大小写、单价×数量、日期一致性，0 token）；
+  跨文档比对组 + Celery 勾稽任务（当事人/金额/签订时序一致性，带关联文档定位）；
+  字段抽取器（规则层 13 字段 0 token + LLM 批量补抽 + 引用反幻觉）。
+- **W6 检索与规则管理**：pgvector 语义检索（本地 bge-small-zh-v1.5 嵌入，0 token）+ 文档级相似；
+  规则包管理（CRUD、上传校验、启停、自定义包优先回落内置）；向量化基础设施与幂等重写。
+- **W7 自学习闭环**：报告页反馈采集（误报原因：词典/规则过严/上下文/其他）；
+  学习诊断看板（反馈分布、候选建议）；每日自动调优（白名单扩充 + 停用建议，先验证再生效）；
+  golden 集版本化回归（manifest v1.0.0，40 份网络公开真实合同，api/worker/beat 只读挂载）。
+- **W7-5 三项 P0 优化**：反馈原因结构化全链路（列 + API + 报告弹窗 + 看板分布 + 回归注入）；
+  golden 版本化（报告展示版本号）；白名单先验证再生效（DB 信号 + golden 两级验证，未通过挂起人工）。
+- **W8 监控与安全加固**：安全响应头（CSP / Frame-Options / nosniff / Referrer-Policy / Permissions-Policy）；
+  上传 MIME 魔数校验（内容与扩展名不符即拒收，防伪装/损坏文件混入）；
+  审计日志（登录成功/失败、注册、上传批次、系统设置变更、学习诊断，管理员可分页查询）；
+  Prometheus 文本指标（/metrics，请求计数/延迟/任务状态/队列深度，仅聚合计数无敏感内容）；
+  系统健康页（文档/任务分布/队列深度/依赖连接状态）。
 
 ## 快速开始（Docker Desktop / Linux 均可）
 
@@ -37,9 +53,10 @@ docker compose up -d --build
 
 | 服务 | 地址 | 说明 |
 | --- | --- | --- |
-| 前端（Nginx） | http://localhost:8080 | 唯一入口，反向代理 `/api` |
+| 前端（Nginx） | http://localhost:8080 | 唯一入口，反向代理 `/api`，已内置安全响应头 |
 | API 文档 | http://localhost:8080/docs | FastAPI 自动生成的接口文档 |
 | API 健康检查 | http://localhost:8080/health | 依赖项连通性 |
+| 监控指标 | http://localhost:8080/metrics | Prometheus 文本格式，仅聚合计数，可匿名抓取 |
 
 ## 常用命令
 
@@ -51,20 +68,31 @@ docker compose down               # 停止（数据保留在命名卷中）
 docker compose down -v            # 停止并删除全部数据（谨慎）
 ```
 
+## 测试与验收
+
+- 后端 pytest **115 用例全绿**（一键：`powershell -File scripts-dev/run_tests.ps1`，容器内运行并自动清理测试库残留连接）。
+- 测试语料：CUAD 英文真实合同 510+ 份 + 政府采购公开合同 4 份 + 示范文本库（共 515 份，溯源清单 `manifest.csv`）。
+- Golden 回归集：`corpus/acceptance_golden/golden_manifest.json`（v1.0.0，40 份公开合同）。
+- 验收交付物：`ux-review/` 下含新用户视角全功能体验测试报告、L3 业务价值代理指标、W7 学习闭环回归报告等。
+
 ## 目录结构
 
 ```
 ai-doc-lint/
-├── docker-compose.yml      # 一键编排
+├── docker-compose.yml      # 一键编排（7 容器：api/worker/beat/db/cache/storage/nginx）
 ├── .env.example            # 全部环境变量（密钥只走这里）
-├── backend/                # FastAPI + SQLAlchemy2 + Alembic + Celery
-├── frontend/               # Vue3 + TS + Vite + Element Plus（Nginx 托管）
-└── scripts-dev/            # 本地开发/浸泡/恢复验证脚本（非分发内容）
+├── backend/                # FastAPI + SQLAlchemy2 + Alembic + Celery + 校验器/学习闭环
+│   └── tests/              # pytest 测试套件（115 用例）
+├── frontend/               # Vue3 + TS + Vite + Element Plus（按需引入，Nginx 托管）
+├── corpus/                 # 公开合同语料（整体 gitignore，manifest 与 golden 清单入库）
+├── ux-review/              # 验收交付包（体验测试/业务指标/回归报告，HTML+JSON）
+└── scripts-dev/            # 本地开发/测试/回归脚本（非分发内容）
 ```
 
 ## 安全与免责
 
 - `.env` 已在 `.gitignore` 中，密钥不入库、不写日志；后台只显示掩码并提供连通测试。
+- 上传文件做扩展名白名单 + MIME 魔数双重校验；关键操作（登录/上传/设置/学习诊断）全量审计留痕。
 - 本工具输出为 AI 辅助校对结果，**不构成法律意见**，正式文件请由专业人员复核。
 
 ## License
