@@ -232,6 +232,24 @@ FINDING_IGNORED = "ignored"
 FINDING_FIXED = "fixed"
 FINDING_STATUSES = (FINDING_OPEN, FINDING_IGNORED, FINDING_FIXED)
 
+# W7-5 误报原因标签（结构化反馈，便于归因统计）
+FEEDBACK_CAUSE_LEXICON = "lexicon"      # 词表外合法用法（如专有名词/方言）
+FEEDBACK_CAUSE_RULE_STRICT = "rule_strict"  # 规则误判/阈值过于严格
+FEEDBACK_CAUSE_CONTEXT = "context"      # 上下文不符（规则未考虑语境）
+FEEDBACK_CAUSE_OTHER = "other"          # 其他
+FEEDBACK_CAUSES = (
+    FEEDBACK_CAUSE_LEXICON,
+    FEEDBACK_CAUSE_RULE_STRICT,
+    FEEDBACK_CAUSE_CONTEXT,
+    FEEDBACK_CAUSE_OTHER,
+)
+FEEDBACK_CAUSE_LABELS = {
+    FEEDBACK_CAUSE_LEXICON: "词表外合法用法",
+    FEEDBACK_CAUSE_RULE_STRICT: "规则误判/过于严格",
+    FEEDBACK_CAUSE_CONTEXT: "上下文不符",
+    FEEDBACK_CAUSE_OTHER: "其他",
+}
+
 
 class CheckFinding(Base, TimestampMixin):
     """校验发现的问题清单：可筛选、可忽略/标记已修复，是 W7 自动学习的正负例来源。"""
@@ -269,6 +287,8 @@ class CheckFinding(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(12), nullable=False, default=FINDING_OPEN)
     # W7 反馈采集：false_positive（误报）/ confirmed（确认有效）/ fixed_by_user（已修复）
     feedback_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # W7-5 反馈原因（误报时用户选择，便于归因统计）：词表外合法用法/规则误判/上下文不符/其他
+    feedback_cause: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 # ---- 字段抽取与交叉比对（W5） ----

@@ -17,7 +17,8 @@
         </div>
       </div>
       <div v-if="tuning" style="margin-top: 10px">
-        <el-alert type="success" :closable="false" :title="`诊断完成：新增白名单词 ${summary.whitelist_added} 个（共 ${summary.whitelist_total} 个）；建议停用规则 ${summary.suggested_rules.length} 条`" />
+        <el-alert type="success" :closable="false"
+          :title="`诊断完成：新增白名单词 ${summary.whitelist_added} 个（共 ${summary.whitelist_total} 个）；${(summary.whitelist_pending ?? []).length ? `拦截未验证候选词 ${summary.whitelist_pending.length} 个；` : ''}建议停用规则 ${summary.suggested_rules.length} 条`" />
       </div>
     </el-card>
 
@@ -47,6 +48,13 @@
           <template #default="{ row }">{{ fmtTime(row.last_feedback_at) }}</template>
         </el-table-column>
       </el-table>
+      <!-- W7-5 误报原因分布（结构化归因） -->
+      <div v-if="causeTags.length" style="margin-top: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px">
+        <span style="color: #909399; font-size: 13px">误报原因分布：</span>
+        <el-tag v-for="t in causeTags" :key="t.label" size="small" type="info">
+          {{ t.label }} × {{ t.count }}
+        </el-tag>
+      </div>
       <el-empty v-if="!stats.length" description="暂无用户反馈数据。在报告页把问题标记为「误报」或「确认」后，这里会出现学习信号。" />
     </el-card>
 
@@ -123,9 +131,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+  FEEDBACK_CAUSE_OPTIONS,
   FeedbackStat,
   LearningLogItem,
   SuggestionItem,
@@ -151,11 +160,33 @@ const checkerLabel: Record<string, string> = {
 }
 const actionLabel: Record<string, string> = {
   whitelist_add: '白名单扩充',
+  whitelist_skipped: '白名单拦截',
   rule_suggest: '生成停用建议',
   suggestion_confirm: '确认停用',
   suggestion_reject: '拒绝建议',
   tuning_run: '学习诊断'
 }
+
+// W7-5 误报原因分布：汇总所有规则的 causes
+const causeTags = computed<{ label: string; count: number }[]>(() => {
+  const agg: Record<string, number> = {}
+  for (const s of stats.value) {
+    for (const [code, cnt] of Object.entries(s.causes ?? {})) {
+      agg[code] = (agg[code] ?? 0) + cnt
+    }
+  }
+  const order = FEEDBACK_CAUSE_OPTIONS.map(c => c.value)
+  return Object.entries(agg)
+    .map(([code, count]) => ({
+      label: FEEDBACK_CAUSE_OPTIONS.find(c => c.value === code)?.label ?? code,
+      count
+    }))
+    .sort((a, b) => {
+      const ia = order.indexOf(a.label) >= 0 ? order.indexOf(a.label) : 99
+      const ib = order.indexOf(b.label) >= 0 ? order.indexOf(b.label) : 99
+      return ia - ib || b.count - a.count
+    })
+})
 
 function rateTag(rate: number): string {
   if (rate >= 0.3) return 'danger'
@@ -173,6 +204,9 @@ function fmtDetail(row: LearningLogItem): string {
   if (row.action === 'whitelist_add') {
     return `新增白名单词 ${d.added} 个（共 ${d.total} 个）：${(d.words ?? []).join('、')}；回滚方式：删除 typo_whitelist_auto.txt`
   }
+  if (row.action === 'whitelist_skipped') {
+    return `未通过验证不自动生效（${(d.words ?? []).join('、')}）：${Object.values(d.reasons ?? {}).join('；')}`
+  }
   if (row.action === 'rule_suggest') {
     return `建议停用规则：${(d.rules ?? []).join('、')}（阈值 ${(d.threshold_rate ?? 0) * 100}%）`
   }
@@ -183,7 +217,7 @@ function fmtDetail(row: LearningLogItem): string {
     return `拒绝停用规则 ${d.rule_id}`
   }
   if (row.action === 'tuning_run') {
-    return `触发方式：${d.trigger === 'daily' ? '每日定时' : '手动'}；新增白名单词 ${d.whitelist_added} 个；建议停用 ${(d.suggested_rules ?? []).length} 条规则`
+    return `触发方式：${d.trigger === 'daily' ? '每日定时' : '手动'}；新增白名单词 ${d.whitelist_added} 个；${(d.whitelist_pending ?? []).length ? `拦截 ${(d.whitelist_pending ?? []).length} 个候选词（未通过验证）；` : ''}建议停用 ${(d.suggested_rules ?? []).length} 条规则`
   }
   return JSON.stringify(d)
 }

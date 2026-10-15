@@ -6,7 +6,8 @@
       "count": 1,
       "words": [
         "签定"
-      ]
+      ],
+      "cause": "context"
     },
     {
       "step": "run_tuning",
@@ -15,29 +16,41 @@
         "trigger": "manual",
         "whitelist_added": 0,
         "whitelist_total": 1,
+        "whitelist_pending": [
+          "由其",
+          "签定"
+        ],
         "suggested_rules": [],
-        "at": "2026-10-14T08:13:56.950227+00:00"
+        "at": "2026-10-15T01:45:57.003175+00:00"
       }
     }
   ],
+  "golden_version": "v1.0.0",
   "tuning": {
     "ok": true,
     "trigger": "manual",
     "whitelist_added": 0,
     "whitelist_total": 1,
+    "whitelist_pending": [
+      "由其",
+      "签定"
+    ],
     "suggested_rules": [],
-    "at": "2026-10-14T08:13:56.950227+00:00"
+    "at": "2026-10-15T01:45:57.003175+00:00"
   },
   "feedback": {
     "items": [
       {
         "checker": "typo",
         "rule_id": "typo.correction",
-        "hit_count": 1,
-        "false_count": 1,
+        "hit_count": 2,
+        "false_count": 2,
         "confirmed_count": 0,
         "false_rate": 1.0,
-        "last_feedback_at": "2026-10-14T08:03:19.776681+00:00"
+        "last_feedback_at": "2026-10-15T01:45:56.937613+00:00",
+        "causes": {
+          "context": 2
+        }
       }
     ]
   },
@@ -46,6 +59,84 @@
   },
   "logs": {
     "items": [
+      {
+        "id": 9,
+        "action": "tuning_run",
+        "detail": {
+          "by": "8825f92a-3258-457c-99b0-9a9723f94d67",
+          "trigger": "manual",
+          "suggested_rules": [],
+          "whitelist_added": 0,
+          "whitelist_total": 1,
+          "whitelist_pending": [
+            "由其",
+            "签定"
+          ]
+        },
+        "created_at": "2026-10-15T01:45:57.004860+00:00"
+      },
+      {
+        "id": 8,
+        "action": "whitelist_skipped",
+        "detail": {
+          "note": "未通过验证不自动生效，如需加入请手动编辑 typo_whitelist_auto.txt",
+          "words": [
+            "由其",
+            "签定"
+          ],
+          "reasons": {
+            "由其": "同词问题曾被确认或未处理（存在 open/fixed/confirmed 记录）",
+            "签定": "同词问题曾被确认或未处理（存在 open/fixed/confirmed 记录）"
+          },
+          "trigger": "manual"
+        },
+        "created_at": "2026-10-15T01:45:57.004860+00:00"
+      },
+      {
+        "id": 7,
+        "action": "tuning_run",
+        "detail": {
+          "by": "8825f92a-3258-457c-99b0-9a9723f94d67",
+          "trigger": "manual",
+          "suggested_rules": [],
+          "whitelist_added": 0,
+          "whitelist_total": 1,
+          "whitelist_pending": [
+            "由其",
+            "签定"
+          ]
+        },
+        "created_at": "2026-10-15T01:44:22.709822+00:00"
+      },
+      {
+        "id": 6,
+        "action": "whitelist_skipped",
+        "detail": {
+          "note": "未通过验证不自动生效，如需加入请手动编辑 typo_whitelist_auto.txt",
+          "words": [
+            "由其",
+            "签定"
+          ],
+          "reasons": {
+            "由其": "同词问题曾被确认或未处理（存在 open/fixed/confirmed 记录）",
+            "签定": "同词问题曾被确认或未处理（存在 open/fixed/confirmed 记录）"
+          },
+          "trigger": "manual"
+        },
+        "created_at": "2026-10-15T01:44:22.709822+00:00"
+      },
+      {
+        "id": 5,
+        "action": "tuning_run",
+        "detail": {
+          "by": "8825f92a-3258-457c-99b0-9a9723f94d67",
+          "trigger": "manual",
+          "suggested_rules": [],
+          "whitelist_added": 0,
+          "whitelist_total": 1
+        },
+        "created_at": "2026-10-14T08:30:43.490137+00:00"
+      },
       {
         "id": 4,
         "action": "tuning_run",

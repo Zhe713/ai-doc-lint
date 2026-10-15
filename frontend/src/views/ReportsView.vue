@@ -105,6 +105,30 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- W7-5 误报反馈：结构化原因选择弹窗 -->
+    <el-dialog v-model="fpDialogOpen" title="标记误报" width="440px" append-to-body>
+      <p style="margin:0 0 4px;color:#606266">
+        将本条问题标记为误报，系统会学习此反馈并降低同类误报。
+      </p>
+      <p style="margin:0 0 12px;color:#909399;font-size:13px">
+        {{ fpTarget?.message }}
+      </p>
+      <el-form label-width="96px" @submit.prevent>
+        <el-form-item label="误报原因" required>
+          <el-select v-model="fpCause" placeholder="请选择原因（便于系统归因）" style="width:100%">
+            <el-option v-for="c in FEEDBACK_CAUSE_OPTIONS" :key="c.value"
+                       :label="c.label" :value="c.value" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="fpDialogOpen = false">取消</el-button>
+        <el-button type="warning" :disabled="!fpCause" @click="confirmFalsePositive">
+          确认误报
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -112,7 +136,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Finding, listFindings, setFindingStatus } from '@/api/findings'
+import { Finding, FEEDBACK_CAUSE_OPTIONS, FeedbackCause, listFindings, setFindingStatus } from '@/api/findings'
 import { downloadAnnotated, requestAnnotated } from '@/api/annotate'
 import { createChatSession, streamChat } from '@/api/chat'
 import { getTask } from '@/api/documents'
@@ -163,26 +187,31 @@ async function reload() {
 async function change(
   row: Finding,
   status: 'open' | 'ignored' | 'fixed',
-  feedback_reason?: 'false_positive' | 'confirmed' | 'fixed_by_user'
+  feedback_reason?: 'false_positive' | 'confirmed' | 'fixed_by_user',
+  feedback_cause?: FeedbackCause
 ) {
-  await setFindingStatus(row.id, status, feedback_reason)
+  await setFindingStatus(row.id, status, feedback_reason, feedback_cause)
   ElMessage.success('状态已更新')
   await reload()
 }
 
-// W7：误报反馈（负例）——确认后加入学习闭环
-async function markFalsePositive(row: Finding) {
-  try {
-    await ElMessageBox.confirm(
-      '将本条问题标记为误报，系统会学习此反馈并降低同类误报。确认继续？',
-      '标记误报',
-      { confirmButtonText: '确认误报', cancelButtonText: '取消', type: 'warning' }
-    )
-  } catch {
-    return
-  }
-  await change(row, 'ignored', 'false_positive')
-  ElMessage.success('已记录误报反馈')
+// W7：误报反馈（负例）——弹窗选择原因后加入学习闭环
+const fpDialogOpen = ref(false)
+const fpTarget = ref<Finding | null>(null)
+const fpCause = ref<FeedbackCause>(null)
+
+function markFalsePositive(row: Finding) {
+  fpTarget.value = row
+  fpCause.value = null
+  fpDialogOpen.value = true
+}
+
+async function confirmFalsePositive() {
+  if (!fpTarget.value || !fpCause.value) return
+  const row = fpTarget.value
+  fpDialogOpen.value = false
+  await change(row, 'ignored', 'false_positive', fpCause.value)
+  ElMessage.success('已记录误报反馈（原因：' + (FEEDBACK_CAUSE_OPTIONS.find(c => c.value === fpCause.value)?.label ?? '') + '）')
 }
 
 // W7：确认有效（正例）——补充学习信号

@@ -83,6 +83,27 @@ def learning_feedback(
             "false_rate": rate,
             "last_feedback_at": last_at.isoformat() if last_at else None,
         })
+
+    # W7-5 误报原因分布（结构化归因）：按 checker/rule/cause 计数
+    cause_rows = db.execute(
+        select(
+            CheckFinding.checker,
+            CheckFinding.rule_id,
+            CheckFinding.feedback_cause,
+            func.count(CheckFinding.id),
+        )
+        .where(
+            CheckFinding.status == FINDING_IGNORED,
+            CheckFinding.feedback_cause.is_not(None),
+        )
+        .group_by(CheckFinding.checker, CheckFinding.rule_id,
+                  CheckFinding.feedback_cause)
+    ).all()
+    causes: dict[str, dict[str, dict[str, int]]] = {}
+    for checker, rule_id, cause, cnt in cause_rows:
+        causes.setdefault(checker, {}).setdefault(rule_id, {})[cause or "other"] = cnt
+    for it in items:
+        it["causes"] = causes.get(it["checker"], {}).get(it["rule_id"], {})
     return {"items": items}
 
 

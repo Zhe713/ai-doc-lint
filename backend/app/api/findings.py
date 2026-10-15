@@ -110,6 +110,11 @@ def patch_finding(
     # W7 反馈采集：reason 仅在明确反馈时写入（误报/确认有效/已修复）
     if body.feedback_reason:
         finding.feedback_reason = body.feedback_reason
+    # W7-5 误报原因标签：仅误报反馈时可填；非误报时清空避免残留
+    if body.feedback_reason == "false_positive":
+        finding.feedback_cause = body.feedback_cause
+    else:
+        finding.feedback_cause = None
     db.commit()
     db.refresh(finding)
     return finding

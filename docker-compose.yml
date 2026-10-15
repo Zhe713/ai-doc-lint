@@ -77,6 +77,8 @@ services:
       - modelcache:/home/appuser/.pycorrector
       # W7：规则目录以宿主持久化（typo 自动白名单可回滚、可编辑）
       - ./backend/app/checkers/rules:/app/app/checkers/rules
+      # W7-5：golden 集只读挂载（自学习闭环回归验证 + 集版本化）
+      - ./corpus/acceptance_golden:/app/corpus/acceptance_golden:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
       interval: 10s
@@ -125,6 +127,7 @@ services:
       - modelcache:/home/appuser/.cache
       - modelcache:/home/appuser/.pycorrector
       - ./backend/app/checkers/rules:/app/app/checkers/rules
+      - ./corpus/acceptance_golden:/app/corpus/acceptance_golden:ro
     networks:
       - aidocnet
 
@@ -155,6 +158,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend/app/checkers/rules:/app/app/checkers/rules
+      - ./corpus/acceptance_golden:/app/corpus/acceptance_golden:ro
     networks:
       - aidocnet
 

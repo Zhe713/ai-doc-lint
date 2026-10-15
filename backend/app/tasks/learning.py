@@ -6,6 +6,7 @@
 - 全部动作写 learning_logs 留痕。
 """
 
+import json
 import logging
 import re
 from datetime import datetime, timezone
@@ -21,6 +22,8 @@ from app.api.learning import (
 from app.db.session import SessionLocal
 from app.models.document import (
     FINDING_IGNORED,
+    FINDING_OPEN,
+    FINDING_FIXED,
     CHECKER_TYPO,
     CheckFinding,
     LearningLog,
@@ -34,6 +37,10 @@ log = logging.getLogger("learning")
 # 自动白名单文件（与内置 typo_whitelist.txt 并存，可一键回滚删除）
 RULES_DIR = Path(__file__).parent.parent / "checkers" / "rules"
 AUTO_WHITELIST = RULES_DIR / "typo_whitelist_auto.txt"
+
+# W7-5 golden 集版本化：manifest 记录版本与 doc 清单，调优前对候选词做 golden 验证
+GOLDEN_MANIFEST = Path("/app/corpus/acceptance_golden/golden_manifest.json")
+GOLDEN_RESULTS = Path("/app/corpus/acceptance_golden/l1_results.json")
 
 
 def _read_auto_words() -> set[str]:
@@ -78,22 +85,104 @@ def _typo_false_words(db) -> set[str]:
     return words
 
 
+def _golden_doc_ids() -> tuple[set[str], str]:
+    """读取 golden 集 doc 清单（manifest 优先，回退 l1_results.json）。
+
+    返回 (doc_id 集合, 版本号)。文件缺失时返回空集与未知版本（跳过 golden 验证）。
+    """
+    manifest = GOLDEN_MANIFEST
+    if manifest.exists():
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            return set(data.get("doc_ids", [])), str(data.get("version", "unknown"))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("golden manifest 解析失败：%s", exc)
+    results = GOLDEN_RESULTS
+    if results.exists():
+        try:
+            rows = json.loads(results.read_text(encoding="utf-8"))
+            ids = {r.get("doc_id") for r in rows if r.get("doc_id")}
+            return ids, "legacy(no-manifest)"
+        except Exception as exc:  # noqa: BLE001
+            log.warning("golden l1_results 解析失败：%s", exc)
+    return set(), "unavailable"
+
+
+def _verify_candidate_words(db, words: set[str]) -> tuple[set[str], dict[str, str]]:
+    """W7-5 白名单先验证再生效。
+
+    候选词两级验证，任一失败则**不自动生效**（挂起人工，写日志）：
+    1) 信号验证：DB 中同词 findings 存在 confirmed / fixed / open 状态
+       （说明系统或用户认为该词确有问题）→ 不自动加入；
+    2) golden 验证：该词出现在 golden 真实合同集的 typo findings 中
+       （说明加入会掩盖 golden 真实问题）→ 不自动加入。
+    返回 (安全词, {不安全词: 原因})。
+    """
+    if not words:
+        return set(), {}
+    safe, pending = set(), {}
+    golden_ids, golden_ver = _golden_doc_ids()
+
+    # 一次查出所有同词 findings（含状态与文档归属）
+    rows = db.execute(
+        select(CheckFinding.id, CheckFinding.status,
+               CheckFinding.feedback_reason, CheckFinding.document_id,
+               CheckFinding.message)
+        .where(CheckFinding.checker == CHECKER_TYPO)
+    ).all()
+    for w in sorted(words):
+        reasons = []
+        # 1) 信号验证
+        for _, status, fb_reason, _doc_id, msg in rows:
+            if f"「{w}」" in (msg or ""):
+                if status in (FINDING_OPEN, FINDING_FIXED) or fb_reason == "confirmed":
+                    reasons.append(
+                        "同词问题曾被确认或未处理（存在 open/fixed/confirmed 记录）"
+                    )
+                    break
+        # 2) golden 验证（manifest 可用时）
+        if not reasons and golden_ids:
+            for _id, _st, _fb, doc_id, msg in rows:
+                if str(doc_id) in golden_ids and f"「{w}」" in (msg or ""):
+                    reasons.append(
+                        f"该词在 golden 真实合同集（{golden_ver}）中被判定为问题，自动加入会掩盖真实问题"
+                    )
+                    break
+        if reasons:
+            pending[w] = "；".join(reasons)
+        else:
+            safe.add(w)
+    return safe, pending
+
+
 def _run_tuning(db, trigger: str, by: str | None) -> dict:
     now = datetime.now(timezone.utc)
 
-    # 1) typo 误报 → 白名单自动扩充
+    # 1) typo 误报 → 白名单验证 → 安全词自动扩充，不安全词挂起人工
     false_words = _typo_false_words(db)
-    added, total = _append_auto_words(false_words)
+    safe_words, pending_map = _verify_candidate_words(db, false_words)
+    added, total = _append_auto_words(safe_words)
     if added:
         db.add(LearningLog(
             action="whitelist_add",
             detail={
                 "trigger": trigger,
-                "words": sorted(false_words),
+                "words": sorted(safe_words),
                 "added": added,
                 "total": total,
                 "file": "typo_whitelist_auto.txt",
                 "rollback": "删除该文件即可回滚",
+                "verified": True,
+            },
+        ))
+    if pending_map:
+        db.add(LearningLog(
+            action="whitelist_skipped",
+            detail={
+                "trigger": trigger,
+                "words": sorted(pending_map),
+                "reasons": pending_map,
+                "note": "未通过验证不自动生效，如需加入请手动编辑 typo_whitelist_auto.txt",
             },
         ))
 
@@ -154,6 +243,7 @@ def _run_tuning(db, trigger: str, by: str | None) -> dict:
             "trigger": trigger,
             "whitelist_added": added,
             "whitelist_total": total,
+            "whitelist_pending": sorted(pending_map) or None,
             "suggested_rules": suggestions,
             "by": by,
         },
@@ -164,6 +254,7 @@ def _run_tuning(db, trigger: str, by: str | None) -> dict:
         "trigger": trigger,
         "whitelist_added": added,
         "whitelist_total": total,
+        "whitelist_pending": sorted(pending_map),
         "suggested_rules": suggestions,
         "at": now.isoformat(),
     }

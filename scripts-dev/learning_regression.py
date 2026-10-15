@@ -14,6 +14,7 @@ BASE = "http://localhost:8080"
 ADMIN = ("boss_admin", "AdminPass123")
 OUT_HTML = r"D:\projects\ai-doc-lint\ux-review\w7-learning-regression.html"
 OUT_JSON = r"D:\projects\ai-doc-lint\ux-review\w7_learning_regression.json"
+GOLDEN_MANIFEST = Path(r"D:\projects\ai-doc-lint\corpus\acceptance_golden\golden_manifest.json")
 
 MAX_FEEDBACK = 5  # 演示反馈条数
 
@@ -57,7 +58,8 @@ def main():
         words = []
         for it in target["typo"]:
             api("PATCH", f"/api/v1/findings/{it['id']}",
-                {"status": "ignored", "feedback_reason": "false_positive"}, token=token)
+                {"status": "ignored", "feedback_reason": "false_positive",
+                 "feedback_cause": "context"}, token=token)
             msg = it.get("message") or ""
             if "「" in msg:
                 words.append(msg.split("「")[1].split("」")[0])
@@ -66,7 +68,18 @@ def main():
             "doc": target["doc"]["filename"],
             "count": len(target["typo"]),
             "words": words,
+            "cause": "context",
         })
+
+    # 1.5) golden 集版本（W7-5 版本化）
+    golden_version = "unknown"
+    if GOLDEN_MANIFEST.exists():
+        try:
+            golden_version = json.loads(
+                GOLDEN_MANIFEST.read_text(encoding="utf-8")).get("version", "unknown")
+        except Exception:  # noqa: BLE001
+            pass
+    report["golden_version"] = golden_version
 
     # 2) 手动触发调优
     summary = api("POST", "/api/v1/admin/learning/run-tuning", {}, token=token)
@@ -130,6 +143,7 @@ def main():
     print(json.dumps({
         "ok": True,
         "tuning": summary,
+        "golden_version": report.get("golden_version"),
         "regression": report["regression"],
         "html": OUT_HTML,
     }, ensure_ascii=False, indent=2))
@@ -141,16 +155,23 @@ def render_html(report: dict, auto_words: set[str]) -> str:
     fb = report.get("feedback", {}).get("items", [])
     sugg = report.get("suggestions", {}).get("items", [])
     logs = report.get("logs", {}).get("items", [])
+    gv = report.get("golden_version", "unknown")
+    pending = t.get("whitelist_pending", []) or []
 
     def esc(s):
         return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+    cause_label = {
+        "lexicon": "词表外合法用法", "rule_strict": "规则误判/过于严格",
+        "context": "上下文不符", "other": "其他",
+    }
     fb_rows = "".join(
         f"<tr><td>{esc(i.get('checker'))}</td><td>{esc(i.get('rule_id'))}</td>"
         f"<td>{i.get('hit_count')}</td><td>{i.get('false_count')}</td>"
-        f"<td>{i.get('confirmed_count')}</td><td>{(i.get('false_rate') or 0) * 100:.1f}%</td></tr>"
+        f"<td>{i.get('confirmed_count')}</td><td>{(i.get('false_rate') or 0) * 100:.1f}%</td>"
+        f"<td>{esc('、'.join(f'{cause_label.get(k, k)}×{v}' for k, v in (i.get('causes') or {}).items())) or '-'}</td></tr>"
         for i in fb
-    ) or '<tr><td colspan="6">暂无反馈</td></tr>'
+    ) or '<tr><td colspan="7">暂无反馈</td></tr>'
     sugg_rows = "".join(
         f"<tr><td>{esc(i.get('checker'))}</td><td>{esc(i.get('rule_id'))}</td>"
         f"<td>{i.get('false_count')}/{i.get('hit_count')}（{i.get('false_rate') * 100:.1f}%）</td>"
@@ -185,10 +206,12 @@ th{{background:#f0f2f5}}
 <div class="card">
 <b>本次调优（{esc(t.get('trigger'))}）</b>：
 新增白名单词 <b class="ok">{t.get('whitelist_added', 0)}</b> 个（累计 {t.get('whitelist_total', 0)}），
+{'<b class="warn">拦截未通过验证候选词 ' + str(len(pending)) + ' 个：' + ''.join(f'<span class="tag">{esc(w)}</span>' for w in pending) + '</b>；' if pending else ''}
 建议停用规则 <b class="warn">{len(t.get('suggested_rules', []))}</b> 条。
-<div class="tag" style="margin-top:8px">回滚方式：删除 rules/typo_whitelist_auto.txt 即可完全回退白名单扩充</div>
+<div class="tag" style="margin-top:8px">golden 集版本：{esc(gv)}（W7-5 集版本化，调优候选词先对 golden 回归验证）</div>
+<div class="tag">回滚方式：删除 rules/typo_whitelist_auto.txt 即可完全回退白名单扩充</div>
 </div>
-<h2>golden 回归对比（40 份真实合同）</h2>
+<h2>golden 回归对比（40 份真实合同，版本 {esc(gv)}）</h2>
 <div class="card"><div class="kpi">
 <div><b>{reg.get('golden_checked', 0)}</b>参与回归文档</div>
 <div><b>{reg.get('typo_before', 0)}</b>调优前 typo 发现</div>
@@ -198,7 +221,7 @@ th{{background:#f0f2f5}}
 <div style="margin-top:12px">受影响词（进入白名单后不再报）：{''.join(f'<span class="tag">{esc(w)}</span>' for w in reg.get('affected_words', [])[:30]) or '（无）'}</div>
 </div>
 <h2>反馈统计</h2>
-<div class="card"><table><tr><th>检查器</th><th>规则</th><th>命中</th><th>误报</th><th>确认</th><th>误报率</th></tr>{fb_rows}</table></div>
+<div class="card"><table><tr><th>检查器</th><th>规则</th><th>命中</th><th>误报</th><th>确认</th><th>误报率</th><th>误报原因</th></tr>{fb_rows}</table></div>
 <h2>停用建议（待确认）</h2>
 <div class="card"><table><tr><th>检查器</th><th>规则</th><th>误报情况</th><th>原因</th><th>状态</th></tr>{sugg_rows}</table></div>
 <h2>学习日志</h2>

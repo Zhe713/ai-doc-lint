@@ -12,6 +12,7 @@ export interface Finding {
   suggestion: string | null
   status: string
   feedback_reason: string | null
+  feedback_cause: string | null
   created_at: string
 }
 
@@ -55,15 +56,25 @@ export async function listFindings(
 
 export type FindingStatus = 'open' | 'ignored' | 'fixed'
 export type FeedbackReason = 'false_positive' | 'confirmed' | 'fixed_by_user' | null
+// W7-5 误报原因标签（与后端 FEEDBACK_CAUSES 对齐）
+export const FEEDBACK_CAUSE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'lexicon', label: '词表外合法用法（专有名词/方言等）' },
+  { value: 'rule_strict', label: '规则误判/过于严格' },
+  { value: 'context', label: '上下文不符（未考虑语境）' },
+  { value: 'other', label: '其他' }
+]
+export type FeedbackCause = 'lexicon' | 'rule_strict' | 'context' | 'other' | null
 
 export async function setFindingStatus(
   id: number,
   status: FindingStatus,
-  feedback_reason?: FeedbackReason
+  feedback_reason?: FeedbackReason,
+  feedback_cause?: FeedbackCause
 ): Promise<Finding> {
   const { data } = await client.patch(`/findings/${id}`, {
     status,
-    ...(feedback_reason ? { feedback_reason } : {})
+    ...(feedback_reason ? { feedback_reason } : {}),
+    ...(feedback_cause ? { feedback_cause } : {})
   })
   return data
 }
@@ -78,6 +89,8 @@ export interface FeedbackStat {
   confirmed_count: number
   false_rate: number
   last_feedback_at: string | null
+  // W7-5 误报原因分布：{ cause_code: count }
+  causes: Record<string, number>
 }
 
 export interface SuggestionItem {
@@ -105,6 +118,7 @@ export interface TuningSummary {
   trigger: string
   whitelist_added: number
   whitelist_total: number
+  whitelist_pending: string[]
   suggested_rules: string[]
   at: string
 }

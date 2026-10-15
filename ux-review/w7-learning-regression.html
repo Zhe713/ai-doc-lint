@@ -20,10 +20,12 @@ th{background:#f0f2f5}
 <div class="card">
 <b>本次调优（manual）</b>：
 新增白名单词 <b class="ok">0</b> 个（累计 1），
+<b class="warn">拦截未通过验证候选词 2 个：<span class="tag">由其</span><span class="tag">签定</span></b>；
 建议停用规则 <b class="warn">0</b> 条。
-<div class="tag" style="margin-top:8px">回滚方式：删除 rules/typo_whitelist_auto.txt 即可完全回退白名单扩充</div>
+<div class="tag" style="margin-top:8px">golden 集版本：v1.0.0（W7-5 集版本化，调优候选词先对 golden 回归验证）</div>
+<div class="tag">回滚方式：删除 rules/typo_whitelist_auto.txt 即可完全回退白名单扩充</div>
 </div>
-<h2>golden 回归对比（40 份真实合同）</h2>
+<h2>golden 回归对比（40 份真实合同，版本 v1.0.0）</h2>
 <div class="card"><div class="kpi">
 <div><b>40</b>参与回归文档</div>
 <div><b>8</b>调优前 typo 发现</div>
@@ -33,9 +35,9 @@ th{background:#f0f2f5}
 <div style="margin-top:12px">受影响词（进入白名单后不再报）：<span class="tag">签定</span></div>
 </div>
 <h2>反馈统计</h2>
-<div class="card"><table><tr><th>检查器</th><th>规则</th><th>命中</th><th>误报</th><th>确认</th><th>误报率</th></tr><tr><td>typo</td><td>typo.correction</td><td>1</td><td>1</td><td>0</td><td>100.0%</td></tr></table></div>
+<div class="card"><table><tr><th>检查器</th><th>规则</th><th>命中</th><th>误报</th><th>确认</th><th>误报率</th><th>误报原因</th></tr><tr><td>typo</td><td>typo.correction</td><td>2</td><td>2</td><td>0</td><td>100.0%</td><td>上下文不符×2</td></tr></table></div>
 <h2>停用建议（待确认）</h2>
 <div class="card"><table><tr><th>检查器</th><th>规则</th><th>误报情况</th><th>原因</th><th>状态</th></tr><tr><td colspan="5">无待确认建议</td></tr></table></div>
 <h2>学习日志</h2>
-<div class="card"><table><tr><th>时间</th><th>动作</th><th>详情</th></tr><tr><td>2026-10-14 08:13:56</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 0, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:07:36</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 0, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:05:17</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 1, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:05:17</td><td>whitelist_add</td><td>{"file": "typo_whitelist_auto.txt", "added": 1, "total": 1, "words": ["签定"], "trigger": "manual", "rollback": "删除该文件即可回滚"}</td></tr></table></div>
+<div class="card"><table><tr><th>时间</th><th>动作</th><th>详情</th></tr><tr><td>2026-10-15 01:45:57</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 0, "whitelist_total": 1, "whitelist_pending": ["由其", "签定"]}</td></tr><tr><td>2026-10-15 01:45:57</td><td>whitelist_skipped</td><td>{"note": "未通过验证不自动生效，如需加入请手动编辑 typo_whitelist_auto.txt", "words": ["由其", "签定"], "reasons": {"由其": "同词问题曾被确认或未处理（存在 open/fixed/confirmed 记录）", "签定": "同词问题曾被确认或未处理（存在 open/fixed/confirmed 记录）"}, "trigger": "manual"}</td></tr><tr><td>2026-10-15 01:44:22</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 0, "whitelist_total": 1, "whitelist_pending": ["由其", "签定"]}</td></tr><tr><td>2026-10-15 01:44:22</td><td>whitelist_skipped</td><td>{"note": "未通过验证不自动生效，如需加入请手动编辑 typo_whitelist_auto.txt", "words": ["由其", "签定"], "reasons": {"由其": "同词问题曾被确认或未处理（存在 open/fixed/confirmed 记录）", "签定": "同词问题曾被确认或未处理（存在 open/fixed/confirmed 记录）"}, "trigger": "manual"}</td></tr><tr><td>2026-10-14 08:30:43</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 0, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:13:56</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 0, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:07:36</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 0, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:05:17</td><td>tuning_run</td><td>{"by": "8825f92a-3258-457c-99b0-9a9723f94d67", "trigger": "manual", "suggested_rules": [], "whitelist_added": 1, "whitelist_total": 1}</td></tr><tr><td>2026-10-14 08:05:17</td><td>whitelist_add</td><td>{"file": "typo_whitelist_auto.txt", "added": 1, "total": 1, "words": ["签定"], "trigger": "manual", "rollback": "删除该文件即可回滚"}</td></tr></table></div>
 </div></body></html>
