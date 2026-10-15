@@ -28,6 +28,8 @@
           </template>
           <el-menu-item index="/admin/users">用户管理</el-menu-item>
           <el-menu-item index="/admin/learning">学习反馈</el-menu-item>
+          <el-menu-item index="/admin/audit">审计日志</el-menu-item>
+          <el-menu-item index="/admin/health">系统健康</el-menu-item>
           <el-menu-item index="/admin/settings">系统设置</el-menu-item>
         </el-sub-menu>
       </el-menu>

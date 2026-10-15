@@ -21,7 +21,9 @@ const router = createRouter({
         { path: 'reports/:docId', name: 'reports', component: () => import('@/views/ReportsView.vue') },
         { path: 'admin/users', name: 'admin-users', component: () => import('@/views/admin/UsersView.vue'), meta: { admin: true } },
         { path: 'admin/settings', name: 'admin-settings', component: () => import('@/views/admin/SettingsView.vue'), meta: { admin: true } },
-        { path: 'admin/learning', name: 'admin-learning', component: () => import('@/views/admin/LearningView.vue'), meta: { admin: true } }
+        { path: 'admin/learning', name: 'admin-learning', component: () => import('@/views/admin/LearningView.vue'), meta: { admin: true } },
+        { path: 'admin/audit', name: 'admin-audit', component: () => import('@/views/admin/AuditLogsView.vue'), meta: { admin: true } },
+        { path: 'admin/health', name: 'admin-health', component: () => import('@/views/admin/SystemHealthView.vue'), meta: { admin: true } }
       ]
     },
     { path: '/:pathMatch(.*)*', redirect: '/' }

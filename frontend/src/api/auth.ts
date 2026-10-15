@@ -66,3 +66,37 @@ export const patchAdminSettings = (patch: Partial<AdminSettings>) =>
   client
     .patch<AdminSettings>('/admin/settings', patch)
     .then((r) => r.data)
+
+// ---- W8：审计日志与系统健康 ----
+
+export interface AuditLogItem {
+  id: number
+  username: string | null
+  action: string
+  target: string | null
+  detail: Record<string, unknown> | null
+  ip: string | null
+  created_at: string | null
+}
+
+export interface AuditLogPage {
+  total: number
+  items: AuditLogItem[]
+}
+
+export const listAuditLogs = (params: { action?: string; limit?: number; offset?: number } = {}) =>
+  client.get<AuditLogPage>('/admin/audit-logs', { params }).then((r) => r.data)
+
+export interface SystemStats {
+  documents: number
+  tasks_total: number
+  tasks_by_state: Record<string, number>
+  queues: Record<string, number>
+  recent_audit: number
+  db?: string
+  valkey?: string
+  minio?: string
+}
+
+export const getSystemStats = () =>
+  client.get<SystemStats>('/admin/system/stats').then((r) => r.data)
