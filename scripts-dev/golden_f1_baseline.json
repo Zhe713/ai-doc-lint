@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-10-16 13:17",
+  "docs_evaluated": 40,
+  "total_tp": 0,
+  "total_fp": 0,
+  "total_fn": 25,
+  "total_tn": 95,
+  "macro_precision": 0.0,
+  "macro_recall": 0.0,
+  "macro_f1": 0.0,
+  "micro_precision": 0.0,
+  "micro_recall": 0.0,
+  "micro_f1": 0.0,
+  "label_conflicts": 17,
+  "f1_违约金比例": 0.0,
+  "f1_违约金条款": 0.0,
+  "f1_争议解决": 0.0,
+  "f1_编号": 0.0,
+  "f1_管辖": 0.0,
+  "f1_金额格式": 0.0,
+  "f1_模板缺失": 0.0
+}
