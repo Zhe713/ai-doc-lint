@@ -5,42 +5,73 @@
       type="info" :closable="false" show-icon style="margin-bottom: 14px" />
 
     <el-row :gutter="16">
-      <!-- 左：上传 + 批次列表 -->
+      <!-- 左：上传（步骤化）+ 批次列表 -->
       <el-col :span="9">
         <el-card shadow="never">
           <template #header><b>上传文档</b></template>
-          <el-upload drag multiple :auto-upload="false" :show-file-list="false"
-            accept=".docx,.pdf,.txt,.md" :on-change="onPick" ref="uploadRef">
-            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-            <div class="el-upload__text">拖拽文件到此处，或<em>点击选择</em>（最多 100 份）</div>
-            <template #tip>
-              <div class="el-upload__tip">支持 .docx / .pdf / .txt / .md；.doc 请先另存为 .docx；单文件 ≤ 200MB</div>
-            </template>
-          </el-upload>
-          <div v-if="picked.length" style="margin-top: 8px">
-            <el-tag v-for="f in picked" :key="f.uid" closable style="margin: 2px"
-              @close="removePicked(f.uid)">{{ f.name }}</el-tag>
-            <el-button link type="danger" size="small" style="margin-left: 6px" @click="clearPicked">清空列表</el-button>
+
+          <el-steps :active="step" finish-status="success" align-center style="margin-bottom: 14px">
+            <el-step title="选择文件" />
+            <el-step title="审查配置" />
+            <el-step title="提交解析" />
+          </el-steps>
+
+          <!-- 第 1 步：选择文件 -->
+          <div v-show="step === 0">
+            <el-upload drag multiple :auto-upload="false" :show-file-list="false"
+              accept=".docx,.pdf,.txt,.md" :on-change="onPick" ref="uploadRef">
+              <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+              <div class="el-upload__text">拖拽文件到此处，或<em>点击选择</em>（最多 100 份）</div>
+              <template #tip>
+                <div class="el-upload__tip">支持 .docx / .pdf / .txt / .md；.doc 请先另存为 .docx；单文件 ≤ 200MB</div>
+              </template>
+            </el-upload>
+            <div v-if="picked.length" style="margin-top: 8px">
+              <el-tag v-for="f in picked" :key="f.uid" closable style="margin: 2px"
+                @close="removePicked(f.uid)">{{ f.name }}</el-tag>
+              <el-button link type="danger" size="small" style="margin-left: 6px" @click="clearPicked">清空列表</el-button>
+            </div>
+            <el-button type="primary" style="margin-top: 10px; width: 100%"
+              :disabled="!picked.length" @click="step = 1">
+              下一步：审查配置
+            </el-button>
           </div>
-          <el-divider content-position="left" style="margin: 12px 0 6px">校验选项</el-divider>
-          <el-radio-group v-model="optDocType" size="small">
-            <el-radio-button label="auto">自动识别</el-radio-button>
-            <el-radio-button label="contract">合同</el-radio-button>
-            <el-radio-button label="tender">招投标</el-radio-button>
-            <el-radio-button label="policy">制度</el-radio-button>
-            <el-radio-button label="report">报告</el-radio-button>
-          </el-radio-group>
-          <div style="margin-top: 8px">
-            <el-checkbox-group v-model="optChecks" size="small">
-              <el-checkbox label="format">格式校验</el-checkbox>
-              <el-checkbox label="typo">错别字</el-checkbox>
-              <el-checkbox label="clause">深度条款审查（更慢但更准）</el-checkbox>
-            </el-checkbox-group>
+
+          <!-- 第 2 步：审查前配置 -->
+          <div v-show="step === 1">
+            <div class="step-tip">请选择文档类型与需要执行的校验项，提交后将开始解析。</div>
+            <el-radio-group v-model="optDocType" size="small">
+              <el-radio-button label="auto">自动识别</el-radio-button>
+              <el-radio-button label="contract">合同</el-radio-button>
+              <el-radio-button label="tender">招投标</el-radio-button>
+              <el-radio-button label="policy">制度</el-radio-button>
+              <el-radio-button label="report">报告</el-radio-button>
+            </el-radio-group>
+            <div style="margin-top: 10px">
+              <el-checkbox-group v-model="optChecks" size="small">
+                <el-checkbox label="format">格式校验</el-checkbox>
+                <el-checkbox label="typo">错别字</el-checkbox>
+                <el-checkbox label="clause">深度条款审查（更慢但更准）</el-checkbox>
+              </el-checkbox-group>
+            </div>
+            <p class="config-hint">
+              已选择 {{ picked.length }} 份文件。默认执行格式与错别字校验；勾选深度条款审查可进一步核对金额、日期与必备条款完整性。
+            </p>
+            <div style="display: flex; gap: 8px; margin-top: 10px">
+              <el-button style="flex: 1" @click="step = 0">上一步</el-button>
+              <el-button type="primary" style="flex: 2" :loading="uploading"
+                @click="doUpload">开始解析（{{ picked.length }} 份）</el-button>
+            </div>
           </div>
-          <el-button type="primary" style="margin-top: 10px; width: 100%" :loading="uploading"
-            :disabled="!picked.length" @click="doUpload">
-            开始解析（{{ picked.length }} 份）
-          </el-button>
+
+          <!-- 第 3 步：已提交 -->
+          <div v-show="step === 2" class="submitted">
+            <el-result icon="success" title="已提交，开始解析" sub-title="解析完成后可点击「查看报告」进入校验结果。">
+              <template #extra>
+                <el-button type="primary" @click="step = 0">继续上传</el-button>
+              </template>
+            </el-result>
+          </div>
         </el-card>
 
         <el-card shadow="never" style="margin-top: 14px">
@@ -201,6 +232,7 @@ import { useTaskProgress } from '@/composables/useTaskProgress'
 const uploadRef = ref()
 const picked = ref<UploadFiles>([])
 const uploading = ref(false)
+const step = ref(0)
 const optDocType = ref('auto')
 const optChecks = ref<string[]>(['format', 'typo'])
 const groups = ref<TaskGroup[]>([])
@@ -260,6 +292,7 @@ async function doUpload() {
       checks: optChecks.value
     })
     ElMessage.success(`已受理 ${res.total} 份，开始排队解析`)
+    step.value = 2
     picked.value = []
     uploadRef.value?.clearFiles()
     await loadGroups()
@@ -409,6 +442,21 @@ onUnmounted(() => pollTimer && window.clearInterval(pollTimer))
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+.step-tip {
+  color: #606266;
+  font-size: 13px;
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+.config-hint {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 10px;
+  line-height: 1.6;
+}
+.submitted {
+  padding: 4px 0;
 }
 .group-item {
   padding: 8px;

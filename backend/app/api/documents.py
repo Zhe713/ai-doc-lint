@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.db import storage
 from app.db.session import get_db
 from app.models.document import (
+    ART_PLAINTEXT,
     GATE_CONTINUE_WARNINGS,
     GATE_CANCEL,
     GATE_OCR_REQUIRED,
@@ -21,6 +22,7 @@ from app.models.document import (
     STATUS_CANCELLED,
     STATUS_PARSED,
     STATUS_PENDING,
+    Artifact,
     Document,
     DocumentTask,
     TaskEvent,
@@ -303,6 +305,15 @@ def task_preview(task_id: uuid.UUID, db: Session = Depends(get_db), current: Use
     task = _get_owned_task(db, current, task_id)
     refs = task.result_refs or {}
     key = refs.get("plaintext")
+    if not key:
+        # 兜底：校验/比对等子任务不持有解析产物引用，按文档取最新 plaintext 产物
+        art = (
+            db.query(Artifact)
+            .filter(Artifact.document_id == task.document_id, Artifact.kind == ART_PLAINTEXT)
+            .order_by(Artifact.created_at.desc())
+            .first()
+        )
+        key = art.storage_key if art else None
     if not key:
         raise HTTPException(status_code=409, detail="任务尚未解析出文本")
     text = storage.get_object_bytes(key).decode("utf-8", errors="replace")
