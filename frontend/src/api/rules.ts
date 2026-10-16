@@ -23,6 +23,12 @@ export interface BuiltinPack {
   file: string
 }
 
+export interface BuiltinPackContent {
+  name: string
+  file: string
+  content: unknown
+}
+
 const PACK_TYPE_LABELS: Record<PackType, string> = {
   format: '格式规则',
   clause: '条款规则',
@@ -37,6 +43,26 @@ export function packTypeLabel(t: PackType): string {
 export async function listBuiltinPacks(): Promise<BuiltinPack[]> {
   const { data } = await client.get('/rules/packs/builtin')
   return data
+}
+
+export async function getBuiltinPackContent(file: string): Promise<BuiltinPackContent> {
+  const { data } = await client.get(`/rules/packs/builtin/${file}`)
+  return data
+}
+
+export async function listRuleSchemas(): Promise<Record<string, { label: string; item_label?: string; fields: SchemaField[] }>> {
+  const { data } = await client.get('/rules/schemas')
+  return data.schemas
+}
+
+export interface SchemaField {
+  key: string
+  label: string
+  type: string
+  required?: boolean
+  default?: unknown
+  help?: string
+  options?: string[]
 }
 
 export async function listRulePacks(packType?: PackType): Promise<RulePack[]> {
