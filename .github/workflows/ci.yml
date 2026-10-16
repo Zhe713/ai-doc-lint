@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: 准备 .env（CI 使用示例配置）
         run: cp .env.example .env
       - name: 构建并启动测试栈（db/cache/storage/api）
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: 安装 Node
         uses: actions/setup-node@v4
         with:
