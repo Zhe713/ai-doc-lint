@@ -47,9 +47,7 @@
 
 ## 快速开始（Docker Desktop / Linux 均可）
 
-前置要求：安装 Docker Engine 28+ 与 Docker Compose v2（本机已验证 Docker 29.8 / Compose v5.5）。
-
-```bash
+前置要求：安装 Docker Engine 28+ 与 Docker Compose v2（本机已验证 Docker 29.8 / Compose v5.5）。```bash
 # 1. 复制环境变量文件，并按需修改密钥/密码/大模型 Key
 cp .env.example .env
 
@@ -69,6 +67,22 @@ docker compose up -d --build
 | API 文档 | http://localhost:8080/docs | FastAPI 自动生成的接口文档 |
 | API 健康检查 | http://localhost:8080/health | 依赖项连通性 |
 | 监控指标 | http://localhost:8080/metrics | Prometheus 文本格式，仅聚合计数，可匿名抓取 |
+
+## 演示模式（零成本）
+
+一键脚本 `scripts-dev/demo_start.ps1`，覆盖本地演示与外网演示两种形态，无需任何云服务器：
+
+```powershell
+# 本地演示：检查 7 容器健康 + 自动打开浏览器
+powershell -ExecutionPolicy Bypass -File scripts-dev\demo_start.ps1
+
+# 外网演示：额外启动 Cloudflare 免费隧道，打印临时公网地址给观众
+powershell -ExecutionPolicy Bypass -File scripts-dev\demo_start.ps1 -Remote
+```
+
+- 外网演示自动定位/下载 cloudflared（约 40MB，仅首次），生成 `*.trycloudflare.com` 随机域名；
+- 演示结束 Ctrl+C 停止隧道，公网地址立即失效、无任何残留与费用；
+- 项目定位为自托管数据不出域，演示数据与真实环境隔离即可。
 
 ## 常用命令
 
