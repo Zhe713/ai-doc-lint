@@ -1,6 +1,7 @@
 # ai-doc-lint
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/Zhe713/ai-doc-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/Zhe713/ai-doc-lint/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](backend/pyproject.toml)
 [![Vue](https://img.shields.io/badge/Vue-3+%2F%20TypeScript-42b883.svg)](frontend)
 ![测试](https://img.shields.io/badge/tests-164%20passing-brightgreen.svg)
