@@ -1,9 +1,11 @@
-"""规则包管理 API（W6 Day26）：自定义规则包上传/列表/详情/更新/启停/删除。
+"""规则包管理 API（W6 Day26 / P2-3 JSON 数据化）。
 
-内置包只读展示（source=builtin），自定义包入库（source=custom）；
-启用的自定义包优先于内置（loader 已改造），变更后清加载缓存立即生效。
+- 内置包只读展示（source=builtin，JSON 数据化）；自定义包入库（source=custom）；
+- 启用的自定义包优先于内置（loader 已改造），变更后清加载缓存立即生效；
+- /rules/schemas 返回四类规则包的表单化 schema，供规则管理界面（P3）渲染表单替代手写 YAML。
 """
 
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,9 +17,11 @@ from app.checkers.loader import (
     CROSS_PACKS,
     DEFAULT_FORMAT_RULES,
     FIELD_PACKS,
+    _read_builtin,
     invalidate_pack_caches,
 )
-from app.checkers.validate import RuleConfigError, validate_pack_yaml
+from app.checkers.ruleset_schema import all_ruleset_schemas, ruleset_schema
+from app.checkers.validate import RuleConfigError, validate_pack
 from app.core.deps import get_current_user, require_admin
 from app.db.session import get_db
 from app.models.rules import PACK_TYPES, RulePack
@@ -27,16 +31,16 @@ router = APIRouter(tags=["rules"])
 
 BUILTIN_PACKS = [
     {"name": "格式默认规则包", "pack_type": "format", "doc_type": "global",
-     "file": DEFAULT_FORMAT_RULES},
+     "file": f"{DEFAULT_FORMAT_RULES}.json"},
     {"name": "条款完整性·合同", "pack_type": "clause", "doc_type": "contract",
-     "file": CLAUSE_PACKS["contract"]},
+     "file": f"{CLAUSE_PACKS['contract']}.json"},
     {"name": "字段抽取·合同", "pack_type": "field", "doc_type": "contract",
-     "file": FIELD_PACKS["contract"]},
+     "file": f"{FIELD_PACKS['contract']}.json"},
     {"name": "交叉勾稽·合同", "pack_type": "cross", "doc_type": "contract",
-     "file": CROSS_PACKS["contract"]},
+     "file": f"{CROSS_PACKS['contract']}.json"},
 ]
 
-_MAX_YAML = 200_000  # 单包 YAML 上限 200KB
+_MAX_YAML = 200_000  # 单包内容上限 200KB（JSON/YAML 同限）
 
 
 def _pack_out(p: RulePack) -> dict:
@@ -60,6 +64,25 @@ def list_builtin_packs(
     _: User = Depends(get_current_user),
 ):
     return BUILTIN_PACKS
+
+
+@router.get("/rules/packs/builtin/{file}")
+def builtin_pack_content(
+    file: str,
+    _: User = Depends(get_current_user),
+):
+    """返回内置规则包原文（JSON）。"""
+    name = file.replace(".json", "").replace(".yaml", "")
+    try:
+        return {"name": name, "file": file, "content": _read_builtin(name)}
+    except RuleConfigError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/rules/schemas")
+def ruleset_schemas(_: User = Depends(get_current_user)):
+    """四类规则包的表单化 schema（P3 规则管理界面渲染用）。"""
+    return {"schemas": all_ruleset_schemas()}
 
 
 @router.get("/rules/packs")
@@ -104,9 +127,9 @@ def create_rule_pack(
     if pack_type not in PACK_TYPES:
         raise HTTPException(status_code=422, detail=f"未知包类型: {pack_type}")
     if len(yaml_content) > _MAX_YAML:
-        raise HTTPException(status_code=422, detail="YAML 内容超过 200KB 上限")
+        raise HTTPException(status_code=422, detail="规则包内容超过 200KB 上限")
     try:
-        validate_pack_yaml(pack_type, yaml_content)
+        validate_pack(pack_type, yaml_content)
     except RuleConfigError as exc:
         raise HTTPException(status_code=422, detail=f"规则包校验失败: {exc}")
 
@@ -147,9 +170,9 @@ def update_rule_pack(
     if "yaml_content" in body:
         yaml_content = body.get("yaml_content") or ""
         if len(yaml_content) > _MAX_YAML:
-            raise HTTPException(status_code=422, detail="YAML 内容超过 200KB 上限")
+            raise HTTPException(status_code=422, detail="规则包内容超过 200KB 上限")
         try:
-            validate_pack_yaml(p.pack_type, yaml_content)
+            validate_pack(p.pack_type, yaml_content)
         except RuleConfigError as exc:
             raise HTTPException(status_code=422, detail=f"规则包校验失败: {exc}")
         p.yaml_content = yaml_content

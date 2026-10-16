@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "name": "format_default",
+  "page": {
+    "size": {
+      "expected_mm": [
+        210,
+        297
+      ],
+      "tolerance_mm": 3,
+      "severity": "warning"
+    },
+    "margin_cm": {
+      "top": [
+        2.0,
+        4.0
+      ],
+      "bottom": [
+        2.0,
+        4.0
+      ],
+      "left": [
+        2.0,
+        3.5
+      ],
+      "right": [
+        2.0,
+        3.5
+      ],
+      "severity": "warning"
+    }
+  },
+  "font": {
+    "body_allow": [
+      "宋体",
+      "仿宋",
+      "仿宋_GB2312",
+      "黑体",
+      "楷体",
+      "Times New Roman"
+    ],
+    "body_size_pt": [
+      10.5,
+      16
+    ],
+    "severity": "warning"
+  },
+  "paragraph": {
+    "first_line_indent_chars": 2,
+    "unindented_ratio": 0.3,
+    "min_chars": 15,
+    "severity": "info"
+  },
+  "heading": {
+    "enabled": true,
+    "severity": "info"
+  }
+}

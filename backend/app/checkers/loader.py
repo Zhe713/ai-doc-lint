@@ -1,30 +1,31 @@
-"""格式/条款/字段/勾稽规则包加载（W6 Day26 改造）。
+"""格式/条款/字段/勾稽规则包加载（W6 Day26 改造 / P2-3 JSON 数据化）。
 
-加载顺序：启用中的 DB 自定义包（rule_packs 表）优先 → 无则回落内置 YAML。
+加载顺序：启用中的 DB 自定义包（rule_packs 表）优先 → 无则回落内置 JSON（YAML 兼容兜底）。
 - 上传/启停/更新自定义包后调用 invalidate_pack_caches() 清 lru_cache；
-- 校验逻辑统一走 validate.validate_pack_yaml（纯函数，上传 API 复用）。
+- 校验逻辑统一走 validate.validate_pack（JSON/YAML 自动识别）。
 """
 
 import functools
+import json
 from pathlib import Path
 
 from app.checkers.validate import (
     PACK_TYPES,
     RuleConfigError,
     pack_sub_payload,
-    validate_pack_yaml,
+    validate_pack,
 )
 
 RULES_DIR = Path(__file__).parent / "rules"
-DEFAULT_FORMAT_RULES = "format_default.yaml"
+DEFAULT_FORMAT_RULES = "format_default"
 CLAUSE_PACKS = {
-    "contract": "clause_contract.yaml",
+    "contract": "clause_contract",
 }
 FIELD_PACKS = {
-    "contract": "fields_contract.yaml",
+    "contract": "fields_contract",
 }
 CROSS_PACKS = {
-    "contract": "cross_contract.yaml",
+    "contract": "cross_contract",
 }
 
 # 可替换的会话工厂：测试注入 TestSessionLocal 以覆盖 DB 优先路径
@@ -39,8 +40,8 @@ def _db_session_factory():
     return _SESSION_FACTORY
 
 
-def _db_custom_yaml(pack_type: str, doc_type: str) -> str | None:
-    """查询启用中的自定义规则包 YAML（最新一条）；无则 None。"""
+def _db_custom_pack(pack_type: str, doc_type: str) -> str | None:
+    """查询启用中的自定义规则包文本（最新一条，JSON 或 YAML）；无则 None。"""
     if pack_type not in PACK_TYPES:
         return None
     from app.models.rules import RulePack
@@ -64,18 +65,26 @@ def _db_custom_yaml(pack_type: str, doc_type: str) -> str | None:
         db.close()
 
 
+def _read_builtin(name: str) -> str:
+    """读内置规则包：优先 .json，YAML 兼容兜底。"""
+    json_path = RULES_DIR / f"{name}.json"
+    if json_path.exists():
+        return json_path.read_text(encoding="utf-8")
+    yaml_path = RULES_DIR / f"{name}.yaml"
+    if yaml_path.exists():
+        return yaml_path.read_text(encoding="utf-8")
+    raise RuleConfigError(f"规则包文件不存在: {name}")
+
+
 def _load_custom_or_builtin(pack_type: str, doc_type: str,
                             builtin_name: str | None) -> dict:
     """自定义包优先；内置文件兜底。返回校验后的 dict。"""
-    custom = _db_custom_yaml(pack_type, doc_type)
+    custom = _db_custom_pack(pack_type, doc_type)
     if custom is not None:
-        return validate_pack_yaml(pack_type, custom)
+        return validate_pack(pack_type, custom)
     if builtin_name is None:
         raise RuleConfigError(f"内置规则包不存在: {pack_type}/{doc_type}")
-    path = RULES_DIR / builtin_name
-    if not path.exists():
-        raise RuleConfigError(f"规则包文件不存在: {path}")
-    return validate_pack_yaml(pack_type, path.read_text(encoding="utf-8"))
+    return validate_pack(pack_type, _read_builtin(builtin_name))
 
 
 @functools.lru_cache(maxsize=8)

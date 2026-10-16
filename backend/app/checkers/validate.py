@@ -1,12 +1,15 @@
-"""规则包 YAML 校验纯函数（W6 Day26）：loader 与上传 API 共用。
+"""规则包校验纯函数（W6 Day26 / P2-3 JSON 数据化）：loader 与上传 API 共用。
 
-把 loader 中分散的校验逻辑收敛为单一入口 validate_pack_yaml：
+把 loader 中分散的校验逻辑收敛为单一入口 validate_pack：
+- 支持 JSON 与 YAML 两种文本（自动识别：先 JSON 后 YAML）；
 - 上传自定义包时先校验，非法包直接拒绝入库；
 - loader 从 DB 读自定义包时同样走该校验，保证内容质量一致。
+validate_pack_yaml 保留为兼容别名（强制 YAML 语义，底层同一校验）。
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import yaml
@@ -20,16 +23,28 @@ class RuleConfigError(Exception):
     pass
 
 
-def validate_pack_yaml(pack_type: str, text: str) -> dict:
-    """校验规则包 YAML；合法返回解析后的 dict，非法抛 RuleConfigError。"""
-    if pack_type not in PACK_TYPES:
-        raise RuleConfigError(f"未知规则包类型: {pack_type}")
+def _parse_pack_text(text: str) -> tuple[dict, str]:
+    """解析规则包文本；返回 (data, content_type)，content_type ∈ {json, yaml}。"""
+    stripped = (text or "").strip()
+    if not stripped:
+        raise RuleConfigError("规则包内容为空")
+    if stripped.startswith(("{", "[")):
+        try:
+            data = json.loads(stripped)
+            return (data, "json")
+        except json.JSONDecodeError as exc:
+            raise RuleConfigError(f"JSON 解析失败: {exc}") from exc
     try:
-        data = yaml.safe_load(text or "")
+        data = yaml.safe_load(stripped)
     except yaml.YAMLError as exc:
         raise RuleConfigError(f"YAML 解析失败: {exc}") from exc
+    return (data, "yaml")
+
+
+def _validate_structure(pack_type: str, data: dict) -> None:
+    """JSON/YAML 共用的结构校验（校验口径与 ruleset_schema 一致）。"""
     if not isinstance(data, dict) or data.get("version") != 1:
-        raise RuleConfigError("规则包格式非法：必须是 version=1 的 YAML 对象")
+        raise RuleConfigError("规则包格式非法：必须是 version=1 的对象")
 
     if pack_type == "format":
         for key in ("page", "font", "paragraph", "heading"):
@@ -59,7 +74,20 @@ def validate_pack_yaml(pack_type: str, text: str) -> dict:
             for key in ("id", "name", "fields", "severity"):
                 if key not in check:
                     raise RuleConfigError(f"勾稽规则缺少 {key}: {check}")
+
+
+def validate_pack(pack_type: str, text: str) -> dict:
+    """校验规则包（JSON/YAML 自动识别）；合法返回解析后的 dict。"""
+    if pack_type not in PACK_TYPES:
+        raise RuleConfigError(f"未知规则包类型: {pack_type}")
+    data, _ = _parse_pack_text(text)
+    _validate_structure(pack_type, data)
     return data
+
+
+def validate_pack_yaml(pack_type: str, text: str) -> dict:
+    """兼容别名：仍接受 YAML 或 JSON 文本（底层同一校验）。"""
+    return validate_pack(pack_type, text)
 
 
 def pack_sub_payload(pack_type: str, data: dict):
