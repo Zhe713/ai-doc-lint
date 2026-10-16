@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class UploadedTaskOut(BaseModel):
@@ -33,6 +33,12 @@ class TaskGroupOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    # 历史脏计数防御：任务并发/中断场景下冗余计数可能被减成负数，UI 不应展示 -1
+    @field_validator("pending", "running", "succeeded", "awaiting", "failed", "cancelled")
+    @classmethod
+    def _clamp_non_negative(cls, v: int) -> int:
+        return max(v, 0)
 
 
 class TaskEventOut(BaseModel):
