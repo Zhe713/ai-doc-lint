@@ -1,6 +1,7 @@
 """导入全部模型，供 Alembic 与 create_all 收集 metadata。"""
 
 from app.db.session import Base
+from app.models.alert import AlertEvent
 from app.models.audit import AuditLog
 from app.models.chat import ChatMessage, ChatSession
 from app.models.document import (
@@ -28,6 +29,7 @@ from app.models.user import (
 
 __all__ = [
     "Base",
+    "AlertEvent",
     "AuditLog",
     "Role",
     "User",

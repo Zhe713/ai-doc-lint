@@ -28,6 +28,7 @@ celery_app = Celery(
         "app.tasks.embed",
         "app.tasks.learning",
         "app.tasks.retention",
+        "app.tasks.alerting",
     ],
 )
 
@@ -64,6 +65,7 @@ celery_app.conf.task_routes = {
     "app.tasks.embed.run_embed": {"queue": QUEUE_EMBED},
     "app.tasks.learning.run_daily_tuning": {"queue": QUEUE_LEARN},
     "app.tasks.retention.cleanup_expired_documents": {"queue": QUEUE_LEARN},
+    "app.tasks.alerting.check_system_alerts": {"queue": QUEUE_LEARN},
 }
 
 celery_app.conf.beat_schedule = {
@@ -82,6 +84,12 @@ celery_app.conf.beat_schedule = {
     "retention-daily-cleanup": {
         "task": "app.tasks.retention.cleanup_expired_documents",
         "schedule": 86400.0,
+        "options": {"queue": QUEUE_LEARN},
+    },
+    # W9 监控告警：每 5 分钟巡检队列积压/解析失败率/任务卡死
+    "alerting-periodic": {
+        "task": "app.tasks.alerting.check_system_alerts",
+        "schedule": 300.0,
         "options": {"queue": QUEUE_LEARN},
     },
 }

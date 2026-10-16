@@ -22,6 +22,10 @@
           <div class="stat-label">近 24 小时操作记录</div>
         </el-card>
         <el-card shadow="never" class="stat">
+          <div class="stat-value" :class="{ danger: (stats.alerts_active ?? 0) > 0 }">{{ stats.alerts_active ?? 0 }}</div>
+          <div class="stat-label">未处理告警</div>
+        </el-card>
+        <el-card shadow="never" class="stat">
           <div class="stat-value">{{ queueDepth }}</div>
           <div class="stat-label">待处理任务</div>
         </el-card>
@@ -54,6 +58,38 @@
         </el-space>
         <p class="hint">监控指标端点：<code>/metrics</code>（Prometheus 文本格式，仅聚合计数，可匿名抓取）</p>
       </el-card>
+
+      <el-card shadow="never" class="section">
+        <template #header>
+          <div class="card-header">
+            <b>告警记录</b>
+            <el-button size="small" @click="loadAlerts">刷新</el-button>
+          </div>
+        </template>
+        <el-table :data="alertRows" size="small" stripe empty-text="暂无告警记录">
+          <el-table-column label="时间" width="150">
+            <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
+          </el-table-column>
+          <el-table-column label="级别" width="80">
+            <template #default="{ row }">
+              <el-tag :type="row.level === 'critical' ? 'danger' : 'warning'" size="small" effect="dark">
+                {{ row.level === 'critical' ? '严重' : '提示' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" width="110">
+            <template #default="{ row }">{{ alertTypeLabels[row.alert_type] || row.alert_type }}</template>
+          </el-table-column>
+          <el-table-column label="内容" prop="message" show-overflow-tooltip />
+          <el-table-column label="状态" width="80">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'active' ? 'danger' : 'info'" size="small" effect="plain">
+                {{ row.status === 'active' ? '未处理' : '已解除' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
     </el-card>
   </div>
 </template>
@@ -61,7 +97,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
-import { getSystemStats, type SystemStats } from '@/api/auth'
+import { getAlerts, getSystemStats, type AlertItem, type SystemStats } from '@/api/auth'
 
 const stateLabels: Record<string, string> = {
   pending: '排队中',
@@ -88,7 +124,14 @@ const depLabels: Record<string, string> = {
   minio: '对象存储'
 }
 
+const alertTypeLabels: Record<string, string> = {
+  queue_backlog: '队列积压',
+  parse_failure: '解析失败率',
+  task_stalled: '任务卡死'
+}
+
 const stats = ref<SystemStats>({})
+const alertRows = ref<AlertItem[]>([])
 const loading = ref(false)
 
 const stateRows = computed(() =>
@@ -120,7 +163,26 @@ async function load() {
   }
 }
 
-onMounted(load)
+function fmtTime(s?: string) {
+  if (!s) return '-'
+  const d = new Date(s)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+async function loadAlerts() {
+  try {
+    const page = await getAlerts({ limit: 10 })
+    alertRows.value = page.items
+  } catch {
+    alertRows.value = []
+  }
+}
+
+onMounted(() => {
+  load()
+  loadAlerts()
+})
 </script>
 
 <style scoped>
@@ -142,6 +204,9 @@ onMounted(load)
   font-size: 28px;
   font-weight: 700;
   color: #409eff;
+}
+.stat-value.danger {
+  color: #f56c6c;
 }
 .stat-label {
   color: #909399;

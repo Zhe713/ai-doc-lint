@@ -104,14 +104,54 @@ def list_audit_logs(
     }
 
 
+@router.get("/alerts")
+def list_alerts(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    limit: int = 50,
+    offset: int = 0,
+    status: str | None = None,
+) -> dict:
+    """W9 系统告警查询（管理员）：按状态过滤 + 分页。"""
+    from app.models.alert import AlertEvent
+
+    q = select(AlertEvent).order_by(AlertEvent.created_at.desc(), AlertEvent.id.desc())
+    cq = select(func.count(AlertEvent.id))
+    if status:
+        q = q.where(AlertEvent.status == status)
+        cq = cq.where(AlertEvent.status == status)
+    total = db.execute(cq).scalar_one()
+    rows = db.execute(q.limit(limit).offset(offset)).scalars().all()
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": str(r.id),
+                "level": r.level,
+                "alert_type": r.alert_type,
+                "message": r.message,
+                "detail": r.detail,
+                "status": r.status,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "resolved_at": r.resolved_at.isoformat() if r.resolved_at else None,
+            }
+            for r in rows
+        ],
+    }
+
+
 @router.get("/system/stats")
 def system_stats(db: Session = Depends(get_db), _: User = Depends(require_admin)) -> dict:
     """管理员系统健康页：文档/任务/队列/依赖/审计概况。"""
     from app.api.monitoring import _db_stats, _queue_lengths
+    from app.models.alert import AlertEvent
     from app.models.audit import AuditLog
 
     db_stats = _db_stats()
     db_stats["queues"] = _queue_lengths()
+    db_stats["alerts_active"] = db.execute(
+        select(func.count(AlertEvent.id)).where(AlertEvent.status == "active")
+    ).scalar_one()
     db_stats["recent_audit"] = db.execute(
         select(func.count(AuditLog.id)).where(
             AuditLog.created_at >= func.now() - func.make_interval(0, 0, 0, 1)

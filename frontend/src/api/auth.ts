@@ -93,6 +93,7 @@ export interface SystemStats {
   tasks_by_state: Record<string, number>
   queues: Record<string, number>
   recent_audit: number
+  alerts_active?: number
   db?: string
   valkey?: string
   minio?: string
@@ -100,3 +101,22 @@ export interface SystemStats {
 
 export const getSystemStats = () =>
   client.get<SystemStats>('/admin/system/stats').then((r) => r.data)
+
+export interface AlertItem {
+  id: string
+  level: string
+  alert_type: string
+  message: string
+  detail?: Record<string, unknown>
+  status: string
+  created_at?: string
+  resolved_at?: string
+}
+
+export interface AlertPage {
+  total: number
+  items: AlertItem[]
+}
+
+export const getAlerts = (params?: { status?: string; limit?: number }) =>
+  client.get<AlertPage>('/admin/alerts', { params }).then((r) => r.data)
