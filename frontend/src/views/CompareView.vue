@@ -62,6 +62,9 @@
                 >
                   {{ detail.status === 'pending' || detail.status === 'running' ? '比对中…' : '触发比对' }}
                 </el-button>
+                <el-button size="small" plain :disabled="!detail.documents.length" @click="exportMatrix">
+                  导出矩阵报告
+                </el-button>
                 <el-button size="small" type="danger" plain @click="removeGroup">
                   删除
                 </el-button>
@@ -159,6 +162,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import client from '@/api/client'
 
 import {
   createCompareGroup,
@@ -257,6 +261,18 @@ async function removeGroup() {
   currentId.value = null
   detail.value = null
   await loadGroups()
+}
+
+async function exportMatrix() {
+  if (!currentId.value) return
+  const resp = await client.get(`/compare-groups/${currentId.value}/matrix-report`, { responseType: 'blob' })
+  const blob = new Blob([resp.data])
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `matrix_${detail.value?.name || 'report'}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 async function openCreate() {

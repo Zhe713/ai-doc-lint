@@ -24,7 +24,7 @@ from app.tasks.cross_compare import enqueue_cross_compare
 router = APIRouter(tags=["compare"])
 
 MIN_DOCS = 2
-MAX_DOCS = 20
+MAX_DOCS = 50
 
 
 def _get_owned_group(db: Session, user: User, group_id: uuid.UUID) -> CompareGroup:
@@ -255,3 +255,89 @@ def delete_compare_group(
     db.delete(group)
     db.commit()
     return None
+
+
+@router.get("/compare-groups/{group_id}/matrix-report")
+def export_matrix_report(
+    group_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+):
+    """批量矩阵报告导出（CSV，UTF-8 BOM 兼容 Excel）：
+    行=字段，列=文档；单元格=提取值；末列放行判定（跨文档无异常差异且一致时可放行）。
+    """
+    import csv
+    import io
+
+    group = _get_owned_group(db, current, group_id)
+    links = db.execute(
+        select(CompareGroupDocument)
+        .where(CompareGroupDocument.compare_group_id == group.id)
+        .order_by(CompareGroupDocument.position)
+    ).scalars().all()
+    docs = [db.get(Document, l.document_id) for l in links]
+    docs = [d for d in docs if d is not None]
+
+    field_rows = db.execute(
+        select(DocumentField).where(
+            DocumentField.document_id.in_([d.id for d in docs]))
+    ).scalars().all()
+    matrix: dict[str, dict[str, dict]] = {}
+    field_labels: dict[str, str] = {}
+    for r in field_rows:
+        cell = {
+            "value_text": r.value_text,
+            "value_number": r.value_number,
+            "value_date": r.value_date.isoformat() if r.value_date else None,
+        }
+        matrix.setdefault(r.field_key, {})[str(r.document_id)] = cell
+        field_labels.setdefault(r.field_key, r.field_label)
+
+    findings = db.execute(
+        select(CheckFinding).where(
+            CheckFinding.task_id.in_(
+                select(DocumentTask.id).where(
+                    DocumentTask.user_id == current.id,
+                    DocumentTask.stats["compare_group_id"].astext == str(group.id),
+                )
+            ),
+            CheckFinding.checker == "cross_doc",
+        )
+    ).scalars().all()
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    header = ["字段", "字段标签", *[d.filename for d in docs], "跨文档异常数", "是否可放行"]
+    w.writerow(header)
+    for fk, cells in matrix.items():
+        values = []
+        bad_count = 0
+        for d in docs:
+            c = cells.get(str(d.id)) or {}
+            v = c.get("value_text")
+            if v is None:
+                v = c.get("value_number")
+            if v is None:
+                v = c.get("value_date")
+            values.append("" if v is None else str(v))
+        # 跨文档异常：该字段在至少 2 份文档间值不一致（空值视为缺失异常）
+        non_empty = {v for v in values if v}
+        if len(values) - values.count("") >= 2 and len(non_empty) > 1:
+            bad_count = len(values) - values.count("")
+        elif values.count("") >= 2:
+            bad_count = values.count("")
+        w.writerow([fk, field_labels.get(fk, ""), *values, bad_count,
+                    "否" if bad_count else "是"])
+    w.writerow([])
+    w.writerow(["比对组", group.name, "文档数", len(docs), "字段数", len(matrix),
+                "跨文档发现", len(findings)])
+
+    raw = buf.getvalue()
+    data = "\ufeff" + raw  # UTF-8 BOM
+    filename = f"matrix_{group.name}.csv"
+    from fastapi.responses import Response
+    return Response(
+        content=data.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
