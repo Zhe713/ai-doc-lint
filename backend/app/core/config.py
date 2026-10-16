@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     stalled_timeout_seconds: int = Field(default=300, alias="STALLED_TIMEOUT_SECONDS")
     max_upload_mb: int = Field(default=200, alias="MAX_UPLOAD_MB")
 
+    # —— 混合检索（P2）：向量 + BM25 + 本地 reranker ——
+    hybrid_rerank_enabled: bool = Field(default=True, alias="HYBRID_RERANK_ENABLED")
+    hybrid_vector_topk: int = Field(default=20, alias="HYBRID_VECTOR_TOPK")
+    hybrid_bm25_topk: int = Field(default=20, alias="HYBRID_BM25_TOPK")
+    hybrid_rerank_topn: int = Field(default=20, alias="HYBRID_RERANK_TOPN")
+
     # W3 意图漏斗：用户未勾选检查项时的默认集合
     default_checks: list[str] = Field(
         default_factory=lambda: ["format", "typo"], alias="DEFAULT_CHECKS"

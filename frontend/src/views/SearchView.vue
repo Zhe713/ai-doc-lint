@@ -5,11 +5,11 @@
         <el-input v-model="query" placeholder="输入你想查的内容，如：付款条款、违约责任、合同期限…"
           size="large" clearable @keyup.enter="onSearch" />
         <el-button type="primary" size="large" :loading="searching" @click="onSearch">
-          语义检索
+          智能检索
         </el-button>
       </div>
       <div style="margin-top: 8px; color: #909399; font-size: 12px">
-        在已解析的文档中智能搜索相似条款或段落，无需消耗额外费用
+        语义理解 + 关键词匹配综合排序，无需消耗额外费用
       </div>
     </el-card>
 
@@ -22,7 +22,7 @@
           <div class="result-head">
             <el-tag size="small" type="info">{{ r.doc_type }}</el-tag>
             <span class="filename">{{ r.filename }}</span>
-            <span class="dist">相似度 {{ (1 - r.distance).toFixed(3) }}</span>
+            <span class="dist">{{ scoreLabel(r) }}</span>
             <el-button size="small" text type="primary" @click="goReport(r.document_id)">
               查看报告
             </el-button>
@@ -62,6 +62,15 @@ function highlight(text: string): string {
   if (!q) return text
   const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return text.replace(new RegExp(escaped, 'gi'), (m) => `<mark>${m}</mark>`)
+}
+
+/** 综合相关度展示：优先 rerank/rrf 分数，退化为语义相似度或关键词命中 */
+function scoreLabel(r: SearchResult): string {
+  if (r.rerank_score != null) return `相关度 ${(r.rerank_score * 100).toFixed(0)}%`
+  if (r.rrf_score != null) return `综合相关度 ${(r.rrf_score * 10).toFixed(1)}`
+  if (r.distance != null) return `语义相似度 ${(1 - r.distance).toFixed(3)}`
+  if (r.bm25_score != null) return '关键词命中'
+  return ''
 }
 
 async function onSearch() {

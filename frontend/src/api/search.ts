@@ -6,11 +6,16 @@ export interface SearchResult {
   doc_type: string
   chunk_index: number
   content: string
-  distance: number
+  distance: number | null
+  vector_distance?: number | null
+  bm25_score?: number | null
+  rrf_score?: number | null
+  rerank_score?: number | null
 }
 
 export interface SearchResponse {
   query: string
+  mode: string
   total: number
   results: SearchResult[]
 }

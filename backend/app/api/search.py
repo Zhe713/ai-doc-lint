@@ -18,12 +18,20 @@ router = APIRouter(tags=["search"])
 def semantic_search(
     q: str,
     limit: int = 10,
+    mode: str = "hybrid",
+    rerank: bool | None = None,
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ):
-    """按语义检索相似条款/段落；结果按余弦距离升序。"""
-    results = search_chunks(db, current.id, q, limit)
-    return {"query": q, "total": len(results), "results": results}
+    """检索相似条款/段落。
+
+    mode=hybrid（默认）：向量 + 关键词 BM25 + RRF 融合，可本地精排；
+    mode=semantic：纯向量语义检索（旧行为）。
+    """
+    if mode not in ("hybrid", "semantic"):
+        raise HTTPException(status_code=400, detail="mode 仅支持 hybrid / semantic")
+    results = search_chunks(db, current.id, q, limit, mode=mode, rerank=rerank)
+    return {"query": q, "mode": mode, "total": len(results), "results": results}
 
 
 @router.get("/documents/{document_id}/similar")
