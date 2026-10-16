@@ -1,0 +1,40 @@
+# CodeQL 代码安全扫描（GitHub 免费）
+name: "CodeQL"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 9 * * 1"   # 每周一 09:00 UTC
+
+jobs:
+  analyze:
+    name: CodeQL 分析
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["python", "javascript"]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+      - name: 初始化 CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      - name: 构建（Python 无需构建；前端执行类型检查构建）
+        if: matrix.language == 'javascript'
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+      - name: 执行 CodeQL 分析
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"

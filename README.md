@@ -4,7 +4,8 @@
 [![CI](https://github.com/Zhe713/ai-doc-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/Zhe713/ai-doc-lint/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](backend/pyproject.toml)
 [![Vue](https://img.shields.io/badge/Vue-3+%2F%20TypeScript-42b883.svg)](frontend)
-![测试](https://img.shields.io/badge/tests-164%20passing-brightgreen.svg)
+![测试](https://img.shields.io/badge/tests-163%20passing-brightgreen.svg)
+![覆盖率](https://img.shields.io/badge/coverage-71%25-brightgreen.svg)
 ![运行成本](https://img.shields.io/badge/核心校验-0%20token-blue.svg)
 
 > 开源自托管的 **AI 文档校验工具**：让 AI 做校对，行家做判断。
@@ -12,7 +13,52 @@
 >
 > 数据全部留在部署方本地；大模型采用 BYOK（自带密钥，通过环境变量注入），项目本身不收集任何数据。
 
-**开源协作**：[贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) · [安全策略](SECURITY.md) · [更新日志](CHANGELOG.md)
+**开源协作**：[贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) · [安全策略](SECURITY.md) · [更新日志](CHANGELOG.md) · [面试 FAQ](docs/INTERVIEW_FAQ.md)
+
+## 界面预览（真实运行截图）
+
+| 首页看板 | 校验报告 |
+| --- | --- |
+| ![首页看板](docs/screenshots/home.png) | ![校验报告](docs/screenshots/report.png) |
+
+| 交叉比对 |
+| --- |
+| ![交叉比对](docs/screenshots/compare.png) |
+
+## 系统架构
+
+```mermaid
+flowchart TB
+    User([用户浏览器]) -->|http://localhost:8080| Nginx
+
+    subgraph 容器编排（docker compose 7 容器）
+        Nginx[nginx<br>静态前端 + 反向代理 /api]
+        API[api<br>FastAPI + SQLAlchemy]
+        Worker[worker<br>Celery 四队列]
+        Beat[beat<br>定时巡检]
+        DB[(db<br>PostgreSQL 18 + pgvector)]
+        Cache[(cache<br>Valkey/Redis)]
+        Store[(storage<br>MinIO S3)]
+    end
+
+    Nginx -->|/api| API
+    API --> DB
+    API --> Cache
+    API --> Store
+    API --> Worker
+    Beat --> Worker
+    Worker --> DB
+    Worker --> Store
+
+    subgraph 能力分层
+        Parse[解析流水线<br>txt/md · pdfium · docling · OCR]
+        Check[校验核心<br>格式 / 错别字 / 条款 / 勾稽]
+        Search[语义检索<br>bge 嵌入 + BM25 + 重排（0 token）]
+        Learn[自学习闭环<br>反馈 → 调优 → golden 回归]
+    end
+
+    Worker --- Parse & Check & Search & Learn
+```
 
 ## 当前进度（W1-W8 已完成；P1-P3 产品迭代已上线）
 
@@ -105,12 +151,14 @@ docker compose down -v            # 停止并删除全部数据（谨慎）
 
 ## 测试与验收
 
-- 后端 pytest **164 用例全绿**（一键：`powershell -File scripts-dev/run_tests.ps1`，容器内运行并自动清理测试库残留连接）。
+- 后端 pytest **163 用例全绿**，覆盖率 **71%**，CI 强制门禁 ≥70%
+  （一键：`powershell -File scripts-dev/run_tests.ps1`，容器内运行并自动清理测试库残留连接）。
 - 测试语料：CUAD 英文真实合同 510+ 份 + 政府采购公开合同 4 份 + 示范文本库（共 515 份，溯源清单 `manifest.csv`）；
   功能测试全部基于网络公开真实合同，禁止自造文件（golden 40 份 + diff/导出/矩阵实证均为公开合同）。
 - Golden 回归集：`corpus/acceptance_golden/golden_manifest.json`（v1.0.0，40 份公开合同）；
   F1 回归脚本 `scripts-dev/golden_f1.py`（精确率/召回率/F1 + 标注口径冲突明细）。
 - 验收交付物：`ux-review/` 下含新用户视角全功能体验测试报告、L3 业务价值代理指标、W7 学习闭环回归报告等。
+- 安全与协作设施：GitHub Actions（测试+覆盖率门禁 / 前端构建 / CodeQL 扫描）、Dependabot 依赖自动更新、Issue/PR 模板。
 
 ## 目录结构
 
@@ -119,8 +167,9 @@ ai-doc-lint/
 ├── docker-compose.yml      # 一键编排（7 容器：api/worker/beat/db/cache/storage/nginx）
 ├── .env.example            # 全部环境变量（密钥只走这里）
 ├── backend/                # FastAPI + SQLAlchemy2 + Alembic + Celery + 校验器/学习闭环
-│   └── tests/              # pytest 测试套件（115 用例）
+│   └── tests/              # pytest 测试套件（160+ 用例，覆盖率 71%）
 ├── frontend/               # Vue3 + TS + Vite + Element Plus（按需引入，Nginx 托管）
+├── docs/                   # 文档（含面试 FAQ、界面截图）
 ├── corpus/                 # 公开合同语料（整体 gitignore，manifest 与 golden 清单入库）
 ├── ux-review/              # 验收交付包（体验测试/业务指标/回归报告，HTML+JSON）
 └── scripts-dev/            # 本地开发/测试/回归脚本（非分发内容）

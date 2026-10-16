@@ -1,0 +1,38 @@
+# 依赖自动更新（Dependabot）
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
