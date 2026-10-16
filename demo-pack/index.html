@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ai-doc-lint 零成本一键演示指南</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23409eff'/%3E%3Ctext x='12' y='17' font-size='13' font-family='sans-serif' fill='%23fff' text-anchor='middle' font-weight='bold'%3EA%3C/text%3E%3C/svg%3E">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --primary: #409eff; --primary-dark: #1f6fb5;
+    --bg: #f5f7fa; --card: #fff; --text: #303133; --muted: #909399;
+    --line: #e4e7ed; --ok: #67c23a; --warn: #e6a23c;
+    --code-bg: #0f172a; --code-text: #e2e8f0;
+  }
+  body { font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  header.hero { background: linear-gradient(135deg, #1f3a5f 0%, #2c5f8f 55%, #409eff 100%); border-radius: 16px; padding: 44px 40px; color: #fff; margin-bottom: 28px; }
+  header.hero .tag { display: inline-block; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); padding: 4px 14px; border-radius: 999px; font-size: 13px; margin-bottom: 14px; }
+  header.hero h1 { font-size: 30px; font-weight: 700; letter-spacing: .5px; }
+  header.hero .sub { margin-top: 10px; font-size: 15px; opacity: .9; }
+  header.hero .badges { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+  header.hero .badge { background: rgba(255,255,255,.14); padding: 6px 14px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  header.hero .badge b { color: #bfe0ff; }
+
+  h2 { font-size: 20px; margin: 36px 0 14px; display: flex; align-items: center; gap: 10px; }
+  h2 .no { width: 26px; height: 26px; border-radius: 8px; background: var(--primary); color: #fff; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  h3 { font-size: 15px; margin: 18px 0 8px; }
+  p, li { font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; margin-bottom: 16px; }
+  .muted { color: var(--muted); font-size: 13px; }
+
+  pre { background: var(--code-bg); color: var(--code-text); border-radius: 10px; padding: 16px 20px; overflow-x: auto; font-size: 13.5px; line-height: 1.6; font-family: Consolas, "Courier New", monospace; margin: 10px 0; }
+  code.inline { background: #ecf5ff; color: #337ecc; border-radius: 4px; padding: 1px 7px; font-size: 13px; font-family: Consolas, monospace; }
+  .cmd { position: relative; }
+  .cmd .prompt { color: #7dd3fc; }
+  .cmd .comment { color: #64748b; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0; }
+  th, td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  th { background: #f0f4f8; font-weight: 600; white-space: nowrap; }
+  tr:nth-child(even) td { background: #fafbfc; }
+
+  .steps { counter-reset: st; list-style: none; }
+  .steps > li { counter-increment: st; position: relative; padding: 10px 0 10px 46px; border-left: 2px solid var(--line); margin-left: 14px; }
+  .steps > li::before { content: counter(st); position: absolute; left: -16px; top: 10px; width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .steps > li:last-child { border-left: 2px solid transparent; }
+
+  .ok { color: var(--ok); font-weight: 600; }
+  .warn { color: var(--warn); font-weight: 600; }
+  .note { background: #fdf6ec; border-left: 4px solid var(--warn); padding: 12px 16px; border-radius: 0 8px 8px 0; font-size: 13.5px; margin: 12px 0; }
+  .file-list { list-style: none; }
+  .file-list li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
+  .file-list .ico { width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .file-list .ps { background: #1f6fb5; }
+  .file-list .md { background: #67c23a; }
+  .file-list .size { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+  .faq details { border-bottom: 1px dashed var(--line); padding: 12px 0; }
+  .faq summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+  .faq details p { margin-top: 8px; font-size: 13.5px; }
+
+  .footer { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="tag">自托管 · AI 文档校验 · 数据不出域</span>
+    <h1>ai-doc-lint 零成本一键演示指南</h1>
+    <div class="sub">给业务方/领导/同事演示项目：一条命令本地起、一条命令出公网地址，无需任何云服务器与费用。</div>
+    <div class="badges">
+      <span class="badge">零成本 <b>无云服务器</b></span>
+      <span class="badge">一键启动 <b>demo_start.ps1</b></span>
+      <span class="badge">外网临时域名 <b>trycloudflare.com</b></span>
+      <span class="badge">用完即关 <b>零残留</b></span>
+    </div>
+  </header>
+
+  <h2><span class="no">1</span> 演示包内容</h2>
+  <div class="card">
+    <p>本文件夹（<code class="inline">demo-pack/</code>）即完整交付物，拷到任意 Windows 电脑即可演示：</p>
+    <ul class="file-list">
+      <li><span class="ico ps">PS</span> scripts/demo_start.ps1<span class="size">演示主脚本（一键起服务 / 一键开公网隧道）</span></li>
+      <li><span class="ico md">M</span> 本指南（index.html）<span class="size">演示步骤与实测记录</span></li>
+    </ul>
+    <p class="muted" style="margin-top:10px">cloudflared 隧道程序无需随包携带：脚本会自动定位已安装版本，未安装时自动从官方 GitHub 下载（约 40MB，仅首次）。</p>
+  </div>
+
+  <h2><span class="no">2</span> 演示前准备（一次性）</h2>
+  <div class="card">
+    <ul class="steps">
+      <li>安装 <b>Docker Desktop</b>（Docker Engine 28+）并启动，确认右下角鲸鱼图标正常。</li>
+      <li>把项目放到本机（仓库 <code class="inline">D:\projects\ai-doc-lint</code> 或拷入的目录），复制 <code class="inline">.env.example</code> 为 <code class="inline">.env</code> 并填入密钥/大模型 Key（演示可不配 LLM，规则检查全部 0 token 可跑）。</li>
+      <li>首次启动构建镜像（约 5-10 分钟，取决于网络）：</li>
+    </ul>
+    <pre><span class="prompt">PS&gt;</span> cd D:\projects\ai-doc-lint
+<span class="prompt">PS&gt;</span> docker compose up -d --build</pre>
+    <div class="note">初始化管理员：首次打开 <code class="inline">http://localhost:8080</code> 会进入「初始化管理员」页面，仅可创建一次，请提前创建演示账号。</div>
+  </div>
+
+  <h2><span class="no">3</span> 一键本地演示</h2>
+  <div class="card">
+    <p>一条命令：自动检查 7 个容器是否健康（未就绪自动拉起），并打开浏览器：</p>
+    <pre><span class="prompt">PS&gt;</span> powershell -ExecutionPolicy Bypass -File scripts-dev\demo_start.ps1</pre>
+    <p>脚本执行效果：</p>
+    <ul>
+      <li>输出 <code class="inline">容器: 7/7 healthy</code> 与 <code class="inline">本地服务就绪: http://localhost:8080</code>；</li>
+      <li>自动打开浏览器进入工作台，即可演示：上传合同 → 校验报告 → 销项 → 原文对照 → 导出意见书/明细；</li>
+      <li>顺带演示首页看板（严重度分布、最近上传）、版本对比、交叉比对、文档助手、规则配置等全部功能。</li>
+    </ul>
+  </div>
+
+  <h2><span class="no">4</span> 一键外网演示（给不在身边的人看）</h2>
+  <div class="card">
+    <p>加 <code class="inline">-Remote</code> 参数，脚本自动建立 Cloudflare 免费隧道，打印临时公网地址：</p>
+    <pre><span class="prompt">PS&gt;</span> powershell -ExecutionPolicy Bypass -File scripts-dev\demo_start.ps1 -Remote</pre>
+    <p>使用要点：</p>
+    <ul class="steps">
+      <li>脚本自动定位 cloudflared（已安装 / winget 安装 / 自动下载三条路径兜底）；</li>
+      <li>约 10 秒后输出形如 <code class="inline">https://xxxx-xxxx-xxxx.trycloudflare.com</code> 的公网地址，把该地址发给观众即可访问；</li>
+      <li>演示结束按 <b>Ctrl+C</b> 停止隧道，公网地址立即失效、无任何残留。</li>
+    </ul>
+    <div class="note">临时隧道无 uptime 保证，仅供演示；观众看到的是本机实时画面，但合同等数据仍全部保存在本机，不经过任何第三方存储。</div>
+  </div>
+
+  <h2><span class="no">5</span> 实测验证记录（2026-10-16）</h2>
+  <div class="card">
+    <table>
+      <tr><th>验证项</th><th>结果</th><th>说明</th></tr>
+      <tr><td>本地访问</td><td class="ok">200 ✓</td><td>http://localhost:8080 正常返回</td></tr>
+      <tr><td>公网访问</td><td class="ok">200 ✓</td><td>https://xxx.trycloudflare.com 经 Cloudflare 边缘可达</td></tr>
+      <tr><td>停止隧道</td><td class="ok">立即失效 ✓</td><td>停止 cloudflared 后公网地址返回 502，零残留</td></tr>
+      <tr><td>容器容灾</td><td class="ok">自动拉起 ✓</td><td>Docker Desktop 停机后，启动引擎并执行 compose up 即可恢复 7 容器</td></tr>
+      <tr><td>健康检查</td><td class="ok">7/7 healthy ✓</td><td>api / db / storage / cache / worker / beat / nginx</td></tr>
+    </table>
+  </div>
+
+  <h2><span class="no">6</span> 成本与边界</h2>
+  <div class="card">
+    <table>
+      <tr><th>项目</th><th>说明</th></tr>
+      <tr><td>云服务器 / 域名 / 备案</td><td>不需要，零成本</td></tr>
+      <tr><td>数据安全</td><td>数据不出域；外网隧道只透传画面，不存储任何文件</td></tr>
+      <tr><td>演示时长</td><td>隧道存活期间有效（建议单次演示 ≤ 数小时）；停止即失效</td></tr>
+      <tr><td>正式对外长期服务</td><td>如需 7×24 公网访问，再评估云主机方案（按需）</td></tr>
+      <tr><td>观众规模</td><td>小规模演示（≤ 数十人）流畅；大规模请用正式部署</td></tr>
+    </table>
+  </div>
+
+  <h2><span class="no">7</span> 常见问题</h2>
+  <div class="card faq">
+    <details open>
+      <summary>演示时没有大模型 Key 能跑吗？</summary>
+      <p>能。格式/错别字/条款完整性/金额勾稽等核心检查全部本地 0 token 运行；对话助手、深度条款审查等 LLM 功能在未配 Key 时会降级提示，不影响主体演示。</p>
+    </details>
+    <details>
+      <summary>脚本报「cloudflared 未安装」怎么办？</summary>
+      <p>脚本会先自动下载；若网络受限，手动执行 <code class="inline">winget install Cloudflare.cloudflared</code> 后重试。</p>
+    </details>
+    <details>
+      <summary>外网地址每次都不一样？</summary>
+      <p>是。临时隧道每次生成随机域名，演示时把当次地址发给观众即可；如需固定地址再评估付费方案。</p>
+    </details>
+    <details>
+      <summary>观众需要装任何东西吗？</summary>
+      <p>不需要，用浏览器打开公网地址即可，手机/电脑均可访问。</p>
+    </details>
+  </div>
+
+  <div class="footer">ai-doc-lint · 让 AI 做校对，行家做判断 · 演示交付包 v1（2026-10-16）</div>
+</div>
+</body>
+</html>

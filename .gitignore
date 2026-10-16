@@ -54,3 +54,6 @@ corpus/*
 # 构建/测试临时输出
 scripts-dev/*.txt
 scripts-dev/*.err
+
+# 演示交付包自检产物
+demo-pack/_shots/

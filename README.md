@@ -1,9 +1,17 @@
 # ai-doc-lint
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](backend/pyproject.toml)
+[![Vue](https://img.shields.io/badge/Vue-3+%2F%20TypeScript-42b883.svg)](frontend)
+![测试](https://img.shields.io/badge/tests-164%20passing-brightgreen.svg)
+![运行成本](https://img.shields.io/badge/核心校验-0%20token-blue.svg)
+
 > 开源自托管的 **AI 文档校验工具**：让 AI 做校对，行家做判断。
 > 合同校验是第一个内置规则包，后续可通过规则包/模板扩展到招投标文件、规章制度、报告等场景。
 >
 > 数据全部留在部署方本地；大模型采用 BYOK（自带密钥，通过环境变量注入），项目本身不收集任何数据。
+
+**开源协作**：[贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) · [安全策略](SECURITY.md) · [更新日志](CHANGELOG.md)
 
 ## 当前进度（W1-W8 已完成；P1-P3 产品迭代已上线）
 
