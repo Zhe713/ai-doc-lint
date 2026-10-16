@@ -7,6 +7,8 @@
       <el-button type="primary" plain :loading="annotating" @click="onAnnotate">
         生成批注版（Word）
       </el-button>
+      <el-button plain :disabled="!docId" @click="downloadPdf">意见书 PDF</el-button>
+      <el-button plain :disabled="!docId" @click="downloadXlsx">Excel 明细</el-button>
     </div>
 
     <el-alert v-if="docFlags?.continued_with_warning" type="error" :closable="false" show-icon
@@ -197,6 +199,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Finding, FEEDBACK_CAUSE_OPTIONS, FeedbackCause, listFindings, setFindingStatus } from '@/api/findings'
 import { downloadAnnotated, requestAnnotated } from '@/api/annotate'
+import client from '@/api/client'
 import { createChatSession, streamChat } from '@/api/chat'
 import { getPreview, getTask } from '@/api/documents'
 
@@ -410,6 +413,27 @@ async function onAnnotate() {
   } finally {
     annotating.value = false
   }
+}
+
+async function downloadPdf() {
+  const resp = await client.get(`/documents/${docId}/export/pdf`, { responseType: 'blob' })
+  saveBlob(resp.data, `${docName.value || '合同'}_意见书.pdf`)
+  ElMessage.success('意见书 PDF 已下载（含高管摘要与问题清单）')
+}
+
+async function downloadXlsx() {
+  const resp = await client.get(`/documents/${docId}/export/xlsx`, { responseType: 'blob' })
+  saveBlob(resp.data, `${docName.value || '合同'}_问题明细.xlsx`)
+  ElMessage.success('Excel 明细已下载（含汇总表，可在 Word/Excel 打开）')
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 onMounted(reload)

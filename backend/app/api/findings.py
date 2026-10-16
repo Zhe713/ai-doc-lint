@@ -118,3 +118,73 @@ def patch_finding(
     db.commit()
     db.refresh(finding)
     return finding
+
+
+# ---------------- P3-3 导出三件套：意见书 PDF / Excel 明细 ----------------
+
+def _get_doc_findings(db: Session, user: User, doc_id: uuid.UUID) -> tuple[Document, list[CheckFinding]]:
+    doc = db.get(Document, doc_id)
+    if doc is None or doc.user_id != user.id:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    findings = db.execute(
+        select(CheckFinding).where(CheckFinding.document_id == doc.id)
+        .order_by(CheckFinding.severity, CheckFinding.id)
+    ).scalars().all()
+    return doc, list(findings)
+
+
+@router.get("/documents/{doc_id}/export/pdf")
+def export_opinion_pdf(
+    doc_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+):
+    """《合同审查意见书》PDF（含高管摘要 + 问题清单）。"""
+    from fastapi.responses import Response
+    from urllib.parse import quote
+
+    from app.services.export import opinion_pdf_bytes
+
+    doc, findings = _get_doc_findings(db, current, doc_id)
+    raw = opinion_pdf_bytes(doc, findings)
+    base = quote(doc.filename.rsplit(".", 1)[0], safe="")
+    return Response(
+        content=raw,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{base}_%E6%84%8F%E8%A7%81%E4%B9%A6.pdf"},
+    )
+
+
+@router.get("/documents/{doc_id}/export/xlsx")
+def export_findings_xlsx(
+    doc_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+):
+    """问题明细 Excel（明细表 + 汇总表）。"""
+    from fastapi.responses import Response
+    from urllib.parse import quote
+
+    from app.services.export import findings_xlsx_bytes
+
+    doc, findings = _get_doc_findings(db, current, doc_id)
+    raw = findings_xlsx_bytes(doc, findings)
+    base = quote(doc.filename.rsplit(".", 1)[0], safe="")
+    return Response(
+        content=raw,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{base}_%E6%98%8E%E7%BB%86.xlsx"},
+    )
+
+
+@router.get("/documents/{doc_id}/export/summary")
+def get_export_summary(
+    doc_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+):
+    """高管摘要（JSON，供前端报告页顶部展示）。"""
+    from app.services.export import executive_summary
+
+    doc, findings = _get_doc_findings(db, current, doc_id)
+    return {"summary": executive_summary(doc, findings)}
