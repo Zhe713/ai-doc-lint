@@ -27,6 +27,7 @@ celery_app = Celery(
         "app.tasks.cross_compare",
         "app.tasks.embed",
         "app.tasks.learning",
+        "app.tasks.retention",
     ],
 )
 
@@ -62,6 +63,7 @@ celery_app.conf.task_routes = {
     "app.tasks.cross_compare.run_cross_compare": {"queue": QUEUE_CROSS_COMPARE},
     "app.tasks.embed.run_embed": {"queue": QUEUE_EMBED},
     "app.tasks.learning.run_daily_tuning": {"queue": QUEUE_LEARN},
+    "app.tasks.retention.cleanup_expired_documents": {"queue": QUEUE_LEARN},
 }
 
 celery_app.conf.beat_schedule = {
@@ -74,6 +76,12 @@ celery_app.conf.beat_schedule = {
     "learning-daily-tuning": {
         "task": "app.tasks.learning.run_daily_tuning",
         "schedule": 86400.0,  # 每日一次；首次触发后按周期滚动
+        "options": {"queue": QUEUE_LEARN},
+    },
+    # W9 数据保留：每日 04:30 清理过期文档（data_retention_days > 0 时生效）
+    "retention-daily-cleanup": {
+        "task": "app.tasks.retention.cleanup_expired_documents",
+        "schedule": 86400.0,
         "options": {"queue": QUEUE_LEARN},
     },
 }
