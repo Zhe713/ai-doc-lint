@@ -4,6 +4,8 @@ import json
 import uuid
 from types import SimpleNamespace
 
+import pytest
+
 from app.checkers.clause_checker import ClauseChecker
 from app.db import storage
 from app.llm.client import LLMNotConfiguredError
@@ -11,6 +13,15 @@ from app.models.document import Artifact, Document
 from app.tasks.review_pipeline import FindingCollector
 from conftest import TestSessionLocal
 from tests.test_intake import _make_user
+
+
+@pytest.fixture(autouse=True)
+def _loader_uses_test_db(monkeypatch):
+    """规则包加载走测试库，避免主库自定义包污染断言（rule_id 变 custom_N）。"""
+    from app.checkers import loader
+
+    monkeypatch.setattr(loader, "_SESSION_FACTORY", TestSessionLocal)
+    loader.invalidate_pack_caches()
 
 
 GOOD_CONTRACT = """

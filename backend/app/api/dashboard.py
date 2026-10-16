@@ -48,6 +48,15 @@ def dashboard_stats(
             Document, Document.id == DocumentChunk.document_id
         ).where(Document.user_id == current.id)
     ).scalar_one()
+    # P3-5 看板化：处理进度 + 最近上传
+    pending = db.execute(
+        select(func.count(CheckFinding.id)).where(
+            CheckFinding.user_id == current.id, CheckFinding.status == "open")
+    ).scalar_one()
+    recent_docs = db.execute(
+        select(Document).where(Document.user_id == current.id)
+        .order_by(Document.created_at.desc()).limit(5)
+    ).scalars().all()
     return {
         "documents": docs,
         "groups": groups,
@@ -56,4 +65,11 @@ def dashboard_stats(
         "rule_packs": rule_packs,
         "chunks": chunks,
         "embedded_docs": embedded_docs,
+        "findings_pending": pending,
+        "findings_resolved": max(findings_total - pending, 0),
+        "recent_documents": [
+            {"id": str(d.id), "filename": d.filename,
+             "created_at": d.created_at.isoformat() if d.created_at else None}
+            for d in recent_docs
+        ],
     }

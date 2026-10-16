@@ -11,6 +11,56 @@
     </el-row>
 
     <el-row :gutter="16" style="margin-top: 16px">
+      <el-col :span="14">
+        <el-card shadow="never">
+          <template #header>
+            <div class="card-head">
+              <b>问题严重度分布</b>
+              <span class="head-note">当前待处理 {{ stats.findings_pending }} 处，已处理 {{ stats.findings_resolved }} 处</span>
+            </div>
+          </template>
+          <div v-if="stats.findings_total > 0" class="sev-bars">
+            <div class="sev-row">
+              <span class="sev-label">错误</span>
+              <div class="sev-track">
+                <div class="sev-fill error" :style="{ width: sevPct('error') + '%' }"></div>
+              </div>
+              <span class="sev-count">{{ stats.findings_by_severity.error }}</span>
+            </div>
+            <div class="sev-row">
+              <span class="sev-label">警告</span>
+              <div class="sev-track">
+                <div class="sev-fill warning" :style="{ width: sevPct('warning') + '%' }"></div>
+              </div>
+              <span class="sev-count">{{ stats.findings_by_severity.warning }}</span>
+            </div>
+            <div class="sev-row">
+              <span class="sev-label">提示</span>
+              <div class="sev-track">
+                <div class="sev-fill info" :style="{ width: sevPct('info') + '%' }"></div>
+              </div>
+              <span class="sev-count">{{ stats.findings_by_severity.info }}</span>
+            </div>
+          </div>
+          <el-empty v-else description="暂无问题数据，上传文档校验后此处将显示严重度分布" :image-size="60" />
+        </el-card>
+      </el-col>
+      <el-col :span="10">
+        <el-card shadow="never">
+          <template #header><b>最近上传</b></template>
+          <div v-if="stats.recent_documents.length" class="recent-list">
+            <div v-for="d in stats.recent_documents" :key="d.id" class="recent-item"
+              @click="router.push(`/reports/${d.id}`)">
+              <span class="recent-name">{{ d.filename }}</span>
+              <span class="recent-time">{{ fmtTime(d.created_at) }}</span>
+            </div>
+          </div>
+          <el-empty v-else description="还没有上传文档" :image-size="60" />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="16" style="margin-top: 16px">
       <el-col :span="8" v-for="step in steps" :key="step.title">
         <el-card shadow="hover" class="step-card">
           <div class="step-num">{{ step.num }}</div>
@@ -45,6 +95,9 @@ const stats = ref({
   groups: '—' as number | string,
   findings_total: '—' as number | string,
   findings_by_severity: { error: 0, warning: 0, info: 0 },
+  findings_pending: 0,
+  findings_resolved: 0,
+  recent_documents: [] as Array<{ id: string; filename: string; created_at: string | null }>,
   rule_packs: '—' as number | string,
   chunks: '—' as number | string,
   embedded_docs: '—' as number | string
@@ -65,6 +118,17 @@ const steps = [
   { num: 3, title: '深入核对', desc: '用文档助手提问、交叉比对多份文档、智能搜索相关条款，全程不消耗额外费用。', action: '使用', to: '/chat' }
 ]
 
+function sevPct(sev: 'error' | 'warning' | 'info'): number {
+  const total = Number(stats.value.findings_total) || 0
+  if (!total) return 0
+  return Math.round(((stats.value.findings_by_severity[sev] || 0) / total) * 100)
+}
+
+function fmtTime(t: string | null): string {
+  if (!t) return ''
+  return t.slice(0, 16).replace('T', ' ')
+}
+
 onMounted(async () => {
   try {
     const s = await getDashboardStats()
@@ -78,6 +142,86 @@ onMounted(async () => {
 <style scoped>
 .stat-card {
   cursor: pointer;
+}
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.head-note {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 400;
+}
+.sev-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+.sev-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sev-label {
+  width: 36px;
+  font-size: 13px;
+  color: #606266;
+}
+.sev-track {
+  flex: 1;
+  height: 18px;
+  background: #f0f2f5;
+  border-radius: 9px;
+  overflow: hidden;
+}
+.sev-fill {
+  height: 100%;
+  border-radius: 9px;
+  transition: width 0.3s;
+}
+.sev-fill.error {
+  background: #f56c6c;
+}
+.sev-fill.warning {
+  background: #e6a23c;
+}
+.sev-fill.info {
+  background: #67c23a;
+}
+.sev-count {
+  width: 36px;
+  text-align: right;
+  font-weight: 600;
+}
+.recent-list {
+  display: flex;
+  flex-direction: column;
+}
+.recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 4px;
+  border-bottom: 1px solid #f0f2f5;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.recent-item:hover {
+  background: #f5f7fa;
+}
+.recent-name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
+}
+.recent-time {
+  font-size: 12px;
+  color: #909399;
+  flex-shrink: 0;
 }
 .step-card {
   height: 100%;
