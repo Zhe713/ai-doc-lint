@@ -9,6 +9,7 @@ from app.api import (
     chat,
     compare,
     dashboard,
+    diff,
     documents,
     findings,
     health,
@@ -28,6 +29,7 @@ api_router.include_router(admin.router)
 api_router.include_router(learning.router)
 api_router.include_router(documents.router)
 api_router.include_router(compare.router)
+api_router.include_router(diff.router)
 api_router.include_router(rules.router)
 api_router.include_router(search.router)
 api_router.include_router(dashboard.router)

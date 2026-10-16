@@ -15,6 +15,7 @@ const router = createRouter({
         { path: '', name: 'home', component: () => import('@/views/HomeView.vue') },
         { path: 'documents', name: 'documents', component: () => import('@/views/DocumentsView.vue') },
         { path: 'compare', name: 'compare', component: () => import('@/views/CompareView.vue') },
+        { path: 'diff', name: 'diff', component: () => import('@/views/DiffView.vue') },
         { path: 'chat', name: 'chat', component: () => import('@/views/ChatView.vue') },
         { path: 'rules', name: 'rules', component: () => import('@/views/RuleTemplatesView.vue') },
         { path: 'search', name: 'search', component: () => import('@/views/SearchView.vue') },

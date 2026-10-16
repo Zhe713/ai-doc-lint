@@ -13,6 +13,9 @@
         <el-menu-item index="/compare">
           <el-icon><Connection /></el-icon><span>交叉比对</span>
         </el-menu-item>
+        <el-menu-item index="/diff">
+          <el-icon><Switch /></el-icon><span>版本对比</span>
+        </el-menu-item>
         <el-menu-item index="/chat">
           <el-icon><ChatDotRound /></el-icon><span>文档助手</span>
         </el-menu-item>
