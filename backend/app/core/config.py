@@ -23,18 +23,18 @@ class Settings(BaseSettings):
     postgres_user: str = Field(default="aidoc", alias="POSTGRES_USER")
     postgres_password: str = Field(default="aidoc_local_pwd", alias="POSTGRES_PASSWORD")
     postgres_db: str = Field(default="ai_doc_lint", alias="POSTGRES_DB")
-    postgres_host: str = Field(default="db", alias="POSTGRES_HOST")
+    postgres_host: str = Field(default="postgres-database", alias="POSTGRES_HOST")
     postgres_port: int = Field(default=5432, alias="POSTGRES_PORT")
     postgres_test_db: str = Field(default="ai_doc_lint_test", alias="POSTGRES_TEST_DB")
 
     # Valkey（Redis 协议）
-    valkey_host: str = Field(default="cache", alias="VALKEY_HOST")
+    valkey_host: str = Field(default="valkey-cache", alias="VALKEY_HOST")
     valkey_port: int = Field(default=6379, alias="VALKEY_PORT")
     valkey_db: int = Field(default=0, alias="VALKEY_DB")
     valkey_password: str = Field(default="", alias="VALKEY_PASSWORD")
 
     # MinIO
-    minio_endpoint: str = Field(default="storage:9000", alias="MINIO_ENDPOINT")
+    minio_endpoint: str = Field(default="minio-storage:9000", alias="MINIO_ENDPOINT")
     minio_access_key: str = Field(default="aidoc_minio", alias="MINIO_ACCESS_KEY")
     minio_secret_key: str = Field(default="aidoc_minio_local_pwd", alias="MINIO_SECRET_KEY")
     minio_bucket: str = Field(default="documents", alias="MINIO_BUCKET")

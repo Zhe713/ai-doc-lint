@@ -29,19 +29,19 @@
 
 ```mermaid
 flowchart TB
-    User([用户浏览器]) -->|http://localhost:8080| Nginx
+    User([用户浏览器]) -->|http://localhost:8080| WebFE
 
-    subgraph 容器编排（docker compose 7 容器）
-        Nginx[nginx<br>静态前端 + 反向代理 /api]
-        API[api<br>FastAPI + SQLAlchemy]
-        Worker[worker<br>Celery 四队列]
-        Beat[beat<br>定时巡检]
-        DB[(db<br>PostgreSQL 18 + pgvector)]
-        Cache[(cache<br>Valkey/Redis)]
-        Store[(storage<br>MinIO S3)]
+    subgraph 容器编排（docker compose 7 容器，名字按"干什么"命名）
+        WebFE[web-frontend<br>nginx 静态前端 + 反向代理 /api]
+        API[backend-api<br>FastAPI + SQLAlchemy]
+        Worker[celery-worker<br>异步任务：解析/校验/批注]
+        Beat[celery-scheduler<br>定时巡检]
+        DB[(postgres-database<br>PostgreSQL 18 + pgvector)]
+        Cache[(valkey-cache<br>Valkey/Redis 队列+缓存+限流)]
+        Store[(minio-storage<br>MinIO S3 文件存储)]
     end
 
-    Nginx -->|/api| API
+    WebFE -->|/api| API
     API --> DB
     API --> Cache
     API --> Store
@@ -164,7 +164,7 @@ docker compose down -v            # 停止并删除全部数据（谨慎）
 
 ```
 ai-doc-lint/
-├── docker-compose.yml      # 一键编排（7 容器：api/worker/beat/db/cache/storage/nginx）
+├── docker-compose.yml      # 一键编排（7 容器：web-frontend/backend-api/celery-worker/celery-scheduler/postgres-database/valkey-cache/minio-storage）
 ├── .env.example            # 全部环境变量（密钥只走这里）
 ├── backend/                # FastAPI + SQLAlchemy2 + Alembic + Celery + 校验器/学习闭环
 │   └── tests/              # pytest 测试套件（160+ 用例，覆盖率 71%）
