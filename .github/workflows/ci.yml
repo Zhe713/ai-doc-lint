@@ -14,6 +14,17 @@ jobs:
         uses: actions/checkout@v4
       - name: 准备 .env（CI 使用示例配置）
         run: cp .env.example .env
+      - name: 预拉取基础镜像（registry 匿名限流时退避重试）
+        run: |
+          for img in pgvector/pgvector:pg18 valkey/valkey:9.0 quay.io/minio/minio:latest; do
+            ok=0
+            for i in 1 2 3 4 5; do
+              if docker pull "$img"; then ok=1; break; fi
+              echo "pull $img 失败（第 $i 次），10 秒后重试"
+              sleep 10
+            done
+            [ "$ok" = 1 ] || { echo "::error::拉取 $img 连续 5 次失败"; exit 1; }
+          done
       - name: 构建并启动测试栈（db/cache/storage/api）
         run: docker compose up -d --build --wait backend-api
       - name: 容器内运行全量 pytest（含覆盖率门禁 ≥70%）
