@@ -7,10 +7,20 @@ export interface UploadedTask {
   status: string
 }
 
+export interface DuplicateFile {
+  filename: string
+  document_id: string | null
+  task_id: string | null
+  created_at: string | null
+  reason: string
+}
+
 export interface UploadResult {
   group_id: string
   total: number
   tasks: UploadedTask[]
+  /** 因内容完全相同被跳过（去重）的文件；之前前端丢掉了这个字段，用户只会觉得"少了几份" */
+  duplicates?: DuplicateFile[]
 }
 
 export interface TaskGroup {

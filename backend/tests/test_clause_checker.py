@@ -1,4 +1,10 @@
-"""ClauseChecker 测试：规则预筛、LLM 存疑判定、反幻觉护栏、无包跳过。"""
+"""ClauseChecker 测试：规则预筛、弱信号判定、缺失语义确认、反幻觉护栏、无包跳过。
+
+三层口径（与实现一致）：
+- strong 命中 → 视为存在，0 token；
+- 仅 weak 命中 → LLM 判定「存在但不完整」（source=hybrid）；
+- 强弱都无 → LLM 按章节语义确认是否真的缺失（source=llm），确认不了不报。
+"""
 
 import json
 import uuid
@@ -9,7 +15,12 @@ import pytest
 from app.checkers.clause_checker import ClauseChecker
 from app.db import storage
 from app.llm.client import LLMNotConfiguredError
-from app.models.document import Artifact, Document
+from app.models.document import (
+    FINDING_SOURCE_HYBRID,
+    FINDING_SOURCE_LLM,
+    Artifact,
+    Document,
+)
 from app.tasks.review_pipeline import FindingCollector
 from conftest import TestSessionLocal
 from tests.test_intake import _make_user
@@ -22,6 +33,18 @@ def _loader_uses_test_db(monkeypatch):
 
     monkeypatch.setattr(loader, "_SESSION_FACTORY", TestSessionLocal)
     loader.invalidate_pack_caches()
+
+
+# LLM 桩：返回一条或多条 clause 判定（clause_id + status + quote + reason）
+def _llm(*rows) -> SimpleNamespace:
+    return SimpleNamespace(
+        content=json.dumps({"results": list(rows)}, ensure_ascii=False),
+        model="stub-model",
+    )
+
+
+def _absent(clause_id: str, reason: str = "") -> dict:
+    return {"clause_id": clause_id, "status": "absent", "quote": "", "reason": reason}
 
 
 GOOD_CONTRACT = """
@@ -81,56 +104,80 @@ def test_good_contract_no_llm(monkeypatch):
     assert called == []  # 全部 strong 命中，0 token
 
 
-def test_direct_missing_no_llm(monkeypatch):
-    called = []
-    monkeypatch.setattr("app.checkers.clause_checker.chat",
-                        lambda *a, **k: called.append(1))
-    text = GOOD_CONTRACT.replace(
-        "第五条 违约责任：任何一方违约，应向守约方支付违约金并赔偿损失。\n", ""
-    ).replace(
-        "第六条 争议解决：协商不成的，提交仲裁委员会仲裁。\n", ""
+MISSING_BOTH = GOOD_CONTRACT.replace(
+    "第五条 违约责任：任何一方违约，应向守约方支付违约金并赔偿损失。\n", ""
+).replace(
+    "第六条 争议解决：协商不成的，提交仲裁委员会仲裁。\n", ""
+)
+
+# 违约责任只剩弱信号「逾期」，争议解决整条删除
+WEAK_BREACH = GOOD_CONTRACT.replace(
+    "第五条 违约责任：任何一方违约，应向守约方支付违约金并赔偿损失。",
+    "第五条 逾期交付的，双方另行协商。",
+).replace(
+    "第六条 争议解决：协商不成的，提交仲裁委员会仲裁。\n", ""
+)
+
+
+def test_missing_clause_confirmed_by_llm(monkeypatch):
+    """强弱信号都没有 → 交 LLM 语义确认；确认缺失才报，且标 source=llm。"""
+    monkeypatch.setattr(
+        "app.checkers.clause_checker.chat",
+        lambda *a, **k: _llm(
+            _absent("clause.breach", "全文无违约责任约定"),
+            _absent("clause.dispute", "全文无争议解决约定"),
+        ),
     )
-    collector = _run(text)
-    rule_ids = {f.rule_id for f in collector.items}
-    assert rule_ids == {"clause.breach", "clause.dispute"}
+    collector = _run(MISSING_BOTH)
+    assert {f.rule_id for f in collector.items} == {"clause.breach", "clause.dispute"}
+    assert all(f.source == FINDING_SOURCE_LLM for f in collector.items)
     assert all(f.severity == "warning" for f in collector.items)
-    assert called == []  # 明确缺失直接出 finding
+    assert all(f.llm_model == "stub-model" for f in collector.items)
+
+
+def test_missing_clause_found_by_semantics(monkeypatch):
+    """关键词没命中但 LLM 在章节里找到同义条款 → 不判缺失（不误报）。"""
+    monkeypatch.setattr(
+        "app.checkers.clause_checker.chat",
+        lambda *a, **k: _llm(
+            {"clause_id": "clause.breach", "status": "present",
+             "quote": "第四条 交付时间", "reason": "已有逾期交付责任约定"},
+            {"clause_id": "clause.dispute", "status": "present",
+             "quote": "", "reason": "已有协商与仲裁安排"},
+        ),
+    )
+    collector = _run(MISSING_BOTH)
+    assert collector.items == []
 
 
 def test_weak_signal_llm_confirms_missing(monkeypatch):
-    payload = json.dumps({"results": [
-        {"id": "clause.breach", "present": False, "quote": "",
-         "reason": "仅有逾期表述，无违约责任约定"},
-    ]}, ensure_ascii=False)
-    monkeypatch.setattr("app.checkers.clause_checker.chat",
-                        lambda *a, **k: SimpleNamespace(content=payload))
-    text = GOOD_CONTRACT.replace(
-        "第五条 违约责任：任何一方违约，应向守约方支付违约金并赔偿损失。",
-        "第五条 逾期交付的，双方另行协商。",
-    ).replace(
-        "第六条 争议解决：协商不成的，提交仲裁委员会仲裁。\n", ""
+    """仅弱信号命中 → LLM 判「存在但不完整」，source=hybrid。"""
+    monkeypatch.setattr(
+        "app.checkers.clause_checker.chat",
+        lambda *a, **k: _llm(
+            {"clause_id": "clause.breach", "status": "missing", "quote": "",
+             "reason": "仅有逾期表述，无违约责任约定"},
+        ),
     )
-    collector = _run(text)
+    collector = _run(WEAK_BREACH)
     breach = [f for f in collector.items if f.rule_id == "clause.breach"]
     assert len(breach) == 1
     assert breach[0].severity == "warning"
+    assert breach[0].source == FINDING_SOURCE_HYBRID
     assert breach[0].location is None
+    assert "不完整" in breach[0].message
 
 
 def test_llm_unmatched_quote_downgrades(monkeypatch):
-    payload = json.dumps({"results": [
-        {"id": "clause.breach", "present": False,
-         "quote": "这句话原文里根本不存在", "reason": "x"},
-    ]}, ensure_ascii=False)
-    monkeypatch.setattr("app.checkers.clause_checker.chat",
-                        lambda *a, **k: SimpleNamespace(content=payload))
-    text = GOOD_CONTRACT.replace(
-        "第五条 违约责任：任何一方违约，应向守约方支付违约金并赔偿损失。",
-        "第五条 逾期交付的，双方另行协商。",
-    ).replace(
-        "第六条 争议解决：协商不成的，提交仲裁委员会仲裁。\n", ""
+    """LLM 给的引用在原文找不到 → 降级 + 告警（反幻觉护栏）。"""
+    monkeypatch.setattr(
+        "app.checkers.clause_checker.chat",
+        lambda *a, **k: _llm(
+            {"clause_id": "clause.breach", "status": "missing",
+             "quote": "这句话原文里根本不存在", "reason": "x"},
+        ),
     )
-    collector = _run(text)
+    collector = _run(WEAK_BREACH)
     breach = [f for f in collector.items if f.rule_id == "clause.breach"][0]
     assert breach.severity == "info"  # warning 降级
     assert breach.location is None
@@ -144,17 +191,11 @@ def test_non_contract_doc_type_skipped():
 
 
 def test_malformed_llm_output_warns(monkeypatch):
+    """LLM 输出不是 JSON → 两轮都解析失败 → 只告警，不产出结论。"""
     monkeypatch.setattr("app.checkers.clause_checker.chat",
                         lambda *a, **k: SimpleNamespace(content="不是JSON"))
-    text = GOOD_CONTRACT.replace(
-        "第五条 违约责任：任何一方违约，应向守约方支付违约金并赔偿损失。",
-        "第五条 逾期交付的，双方另行协商。",
-    ).replace(
-        "第六条 争议解决：协商不成的，提交仲裁委员会仲裁。\n", ""
-    )
-    collector = _run(text)
-    # dispute 明确缺失仍会直接出 finding；breach 因输出无法解析不出 finding
-    assert {f.rule_id for f in collector.items} == {"clause.dispute"}
+    collector = _run(WEAK_BREACH)
+    assert collector.items == []
     assert any("无法解析" in w for w in collector.warnings)
 
 
@@ -163,13 +204,8 @@ def test_llm_not_configured_warns(monkeypatch):
         raise LLMNotConfiguredError("no key")
 
     monkeypatch.setattr("app.checkers.clause_checker.chat", _raise)
-    text = GOOD_CONTRACT.replace(
-        "第五条 违约责任：任何一方违约，应向守约方支付违约金并赔偿损失。",
-        "第五条 逾期交付的，双方另行协商。",
-    ).replace(
-        "第六条 争议解决：协商不成的，提交仲裁委员会仲裁。\n", ""
-    )
-    collector = _run(text)
-    # dispute 明确缺失仍直接出 finding；breach 因未配置 LLM 仅告警
-    assert {f.rule_id for f in collector.items} == {"clause.dispute"}
+    collector = _run(WEAK_BREACH)
+    # 未配置 LLM：弱信号与缺失项都不出结论，只告警并按 clause 记 skipped
+    assert collector.items == []
     assert any("LLM" in w for w in collector.warnings)
+    assert "clause.breach" in collector.skipped

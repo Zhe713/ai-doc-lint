@@ -1,4 +1,4 @@
-"""批注版生成受理与产物下载接口（W4 Day18）。"""
+"""批注版生成受理与产物下载接口。"""
 
 import urllib.parse
 import uuid
@@ -10,15 +10,18 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.db import storage
 from app.db.session import get_db
-from app.models.document import Document, DocumentTask
+from app.models.document import (
+    ART_ANNOTATED,
+    Artifact,
+    Document,
+    DocumentTask,
+)
 from app.models.user import User
 from app.services.annotate_service import create_annotate_task
 
 router = APIRouter(tags=["annotate"])
 
-DOCX_MIME = (
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-)
+FALLBACK_MIME = "application/octet-stream"
 
 
 @router.post("/documents/{doc_id}/annotate", status_code=201)
@@ -49,13 +52,25 @@ def download_artifact(
     if not key:
         raise HTTPException(status_code=409, detail="产物尚未生成")
 
+    artifact = (
+        db.query(Artifact)
+        .filter(
+            Artifact.document_id == task.document_id,
+            Artifact.kind == ART_ANNOTATED,
+            Artifact.storage_key == key,
+        )
+        .first()
+    )
+    media_type = artifact.content_type if artifact else FALLBACK_MIME
+    ext = key.rsplit(".", 1)[-1] if "." in key else "bin"
+
     doc = db.get(Document, task.document_id)
-    data = storage.get_object_bytes(key)
     base = (doc.filename if doc else "document").rsplit(".", 1)[0]
-    download_name = f"{base}_批注版.docx"
+    download_name = f"{base}_批注版.{ext}"
     quoted = urllib.parse.quote(download_name)
     return Response(
-        content=data, media_type=DOCX_MIME,
+        content=storage.get_object_bytes(key),
+        media_type=media_type or FALLBACK_MIME,
         headers={
             "Content-Disposition":
                 f"attachment; filename*=UTF-8''{quoted}",

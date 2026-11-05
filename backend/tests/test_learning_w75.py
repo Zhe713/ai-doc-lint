@@ -126,3 +126,25 @@ def test_verify_candidate_blocks_confirmed_and_open(client, monkeypatch):
     finally:
         db.close()
     assert "无冲突测试词甲" in safe2 and not pending2, "无冲突候选词应正常加入"
+
+
+def test_verify_blocks_known_typo_even_if_user_ignored(client, monkeypatch):
+    """混淆集里有明确正确写法的词，即使用户标成误报也不自动加白。
+
+    背景：『签定』被用户当误报忽略后，学习闭环自动写进 typo_whitelist_auto.txt，
+    等于把真错别字永久保护起来（评测集 INJ-02 因此漏检）。现在加词典级硬约束。
+    """
+    monkeypatch.setattr("app.api.documents.enqueue_parse", lambda task_id: None)
+    headers = _auth(client, "w75_known_typo")
+    uid = _user_id("w75_known_typo")
+    doc_id = _upload_doc(client, headers)
+    _typo_finding(doc_id, uid, "走头无路", status="ignored", reason="false_positive")
+
+    db = TestSessionLocal()
+    try:
+        safe, pending = _verify_candidate_words(db, {"走头无路"})
+    finally:
+        db.close()
+
+    assert "走头无路" not in safe, "混淆集词不得自动加白"
+    assert "混淆集" in pending.get("走头无路", ""), f"应说明被混淆集拦截，实际 {pending}"

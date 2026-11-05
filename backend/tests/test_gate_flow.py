@@ -68,6 +68,9 @@ def _upload_one(client, headers, name, content=b"data"):
     # W8 魔数校验后：模拟损坏 PDF 需保留 %PDF- 文件头（内容损坏在解析阶段暴露，走人工闸门）
     if name.lower().endswith(".pdf") and not content.startswith(b"%PDF-"):
         content = b"%PDF-1.4 " + content
+    # sha256 去重生效后，同一文件二次上传会被 409 拒绝；
+    # 这里每次追加随机尾注，保证是同名但不同内容的新文档（解析仍失败，照常进闸门）。
+    content = content + b" %" + uuid.uuid4().hex.encode()
     resp = client.post(
         "/api/v1/documents/upload",
         files={"files": (name, content, "application/octet-stream")},

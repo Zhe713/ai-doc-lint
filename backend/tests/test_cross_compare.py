@@ -147,7 +147,11 @@ def test_missing_field_pair_skipped():
 
 # ---------------- 比对组 API ----------------
 
-def _upload_doc(client, headers, name="report.txt", content=b"hello"):
+def _upload_doc(client, headers, name="report.txt", content: bytes | None = None):
+    # sha256 去重生效后，同名/同内容二次上传会被 409 拒绝，
+    # 默认按文件名生成唯一内容，保证每次上传都是「新文档」。
+    if content is None:
+        content = f"hello {name}".encode()
     resp = client.post(
         "/api/v1/documents/upload",
         files={"files": (name, content, "text/plain")},

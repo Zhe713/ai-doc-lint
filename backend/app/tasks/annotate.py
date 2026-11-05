@@ -1,19 +1,31 @@
-"""annotate（批注版生成）任务（W4 Day18）。
+"""annotate（批注版生成）任务。
 
-纯确定性、不调用 LLM：
-- docx：python-docx 1.2 原生 add_comment，把问题写成真 Word 批注；
-  snippet 在正文/表格段落中匹配不到的问题，汇总到文末「问题清单」；
-- pdf/txt/md：无法回写批注，生成一份「问题清单」docx。
+同格式回写、原文档零改写，只加注释层：
+- pdf：pypdfium2 定位字符坐标，pypdf 写高亮注解（按严重程度着色），
+  点击高亮可看批注；定位不到的问题汇总成一条便签注解放在首页；
+- docx：python-docx 原生 add_comment 写真 Word 批注；
+  定位不到的问题汇总成一条批注挂在首个含 run 的段落；
+- txt/md：在命中行下一行插入「【AI批注·级别】…」批注行；
+  定位不到的问题在文件开头批注区集中列出。
 
 产物入 MinIO（kind=annotated），result_refs.annotated 指向存储键。
 """
 
 import io
 import logging
+import re
 import uuid
 
+import pypdfium2 as pdfium
 from docx import Document as DocxDocument
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from pypdf import PdfReader, PdfWriter
+from pypdf.annotations import Highlight, Text as PdfText
+from pypdf.generic import (
+    ArrayObject,
+    FloatObject,
+    NameObject,
+    TextStringObject,
+)
 
 from app.db import storage
 from app.db.session import SessionLocal
@@ -34,6 +46,22 @@ log = logging.getLogger("annotate")
 
 AUTHOR = "ai-doc-lint"
 SEV_TAG = {"error": "【错误】", "warning": "【警告】", "info": "【提示】"}
+SEV_COLOR = {"error": "ff0000", "warning": "ffff00", "info": "3399ff"}
+MIME_MAP = {
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument"
+            ".wordprocessingml.document",
+    "txt": "text/plain",
+    "md": "text/markdown",
+}
+
+_XML_ILLEGAL_RE = re.compile(
+    "[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff\ud800-\udfff]"
+)
+
+
+def _clean(text: str) -> str:
+    return _XML_ILLEGAL_RE.sub("", text or "")
 
 
 def enqueue_annotate(task_id: uuid.UUID) -> None:
@@ -56,33 +84,15 @@ def _active_findings(db: Session, document_id: uuid.UUID) -> list[CheckFinding]:
     return rows
 
 
-def _load_plaintext(db: Session, document: Document) -> str | None:
-    """读取解析任务落盘的纯文本（非 docx 输入生成批注版时附带原合同全文）。"""
-    parse_task = (
-        db.query(DocumentTask)
-        .filter(
-            DocumentTask.document_id == document.id,
-            DocumentTask.task_type == "parse",
-        )
-        .order_by(DocumentTask.created_at.desc())
-        .first()
-    )
-    if parse_task is None:
-        return None
-    key = (parse_task.result_refs or {}).get("plaintext")
-    if not key:
-        return None
-    try:
-        return storage.get_object_bytes(key).decode("utf-8", errors="replace")
-    except Exception:  # noqa: BLE001
-        return None
-
-
 def _comment_text(finding: CheckFinding) -> str:
     parts = [SEV_TAG.get(finding.severity, "【提示】") + finding.message]
     if finding.suggestion:
         parts.append("建议：" + finding.suggestion)
-    return "\n".join(parts)
+    return _clean("\n".join(parts))
+
+
+def _norm(text: str) -> str:
+    return "".join((text or "").split())
 
 
 def _all_paragraphs(doc: DocxDocument):
@@ -94,8 +104,121 @@ def _all_paragraphs(doc: DocxDocument):
                 yield from cell.paragraphs
 
 
-def _norm(text: str) -> str:
-    return "".join((text or "").split())
+# ---------------- pdf 批注 ----------------
+
+
+def _pdf_page_norm_map(tp: pdfium.PdfTextPage):
+    """返回 (去空白拼接文本, 归一化位置->字符下标映射)。"""
+    n_chars = tp.count_chars()
+    norm_chars = []
+    index_map = []
+    for i in range(n_chars):
+        piece = tp.get_text_range(i, 1)
+        for ch in piece:
+            if not ch.isspace():
+                norm_chars.append(ch)
+                index_map.append(i)
+    return "".join(norm_chars), index_map
+
+
+def _locate_pdf(pdf: pdfium.PdfDocument, snippet: str):
+    target = _norm(snippet)
+    if not target:
+        return None
+    for page_idx in range(len(pdf)):
+        tp = pdf[page_idx].get_textpage()
+        norm_text, index_map = _pdf_page_norm_map(tp)
+        pos = norm_text.find(target)
+        if pos >= 0:
+            char_indices = sorted(set(index_map[pos:pos + len(target)]))
+            return page_idx, char_indices
+    return None
+
+
+def _group_line_rects(tp: pdfium.PdfTextPage, char_indices: list[int]):
+    """把字符框按行分组并合并，返回 (left, bottom, right, top) 列表。"""
+    lines = {}
+    for i in char_indices:
+        left, bottom, right, top = tp.get_charbox(i)
+        key = round(top, 1)
+        if key in lines:
+            pl, pb, pr, pt = lines[key]
+            lines[key] = (min(pl, left), min(pb, bottom),
+                          max(pr, right), max(pt, top))
+        else:
+            lines[key] = (left, bottom, right, top)
+    return list(lines.values())
+
+
+def _unmatched_note_text(items: list[CheckFinding]) -> str:
+    lines = ["以下问题未能定位到原文位置："]
+    for idx, finding in enumerate(items, 1):
+        lines.append(
+            f"{idx}. {SEV_TAG.get(finding.severity, '【提示】')}"
+            f"{_comment_text(finding)}"
+        )
+    return "\n".join(lines)
+
+
+def _annotate_pdf(data: bytes, findings: list[CheckFinding]) -> bytes:
+    pdf = pdfium.PdfDocument(data)
+    located = []
+    unmatched = []
+
+    for finding in findings:
+        snippet = (finding.location or {}).get("snippet", "")
+        hit = _locate_pdf(pdf, snippet)
+        if hit is None:
+            unmatched.append(finding)
+        else:
+            located.append((finding, hit[0], hit[1]))
+
+    reader = PdfReader(io.BytesIO(data))
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+
+    for finding, page_idx, char_indices in located:
+        tp = pdf[page_idx].get_textpage()
+        line_rects = _group_line_rects(tp, char_indices)
+        quads = ArrayObject()
+        for left, bottom, right, top in line_rects:
+            quads.extend([
+                FloatObject(left), FloatObject(top),
+                FloatObject(right), FloatObject(top),
+                FloatObject(left), FloatObject(bottom),
+                FloatObject(right), FloatObject(bottom),
+            ])
+        big_rect = (
+            min(r[0] for r in line_rects),
+            min(r[1] for r in line_rects),
+            max(r[2] for r in line_rects),
+            max(r[3] for r in line_rects),
+        )
+        highlight = Highlight(
+            rect=big_rect,
+            quad_points=quads,
+            highlight_color=SEV_COLOR.get(finding.severity, "ffff00"),
+            title_bar=AUTHOR,
+        )
+        highlight[NameObject("/Contents")] = TextStringObject(
+            _comment_text(finding)
+        )
+        writer.add_annotation(page_idx, highlight)
+
+    if unmatched:
+        first_page = pdf[0]
+        width, height = first_page.get_size()
+        note = PdfText(
+            rect=(10, height - 25, 26, height - 10),
+            text=_unmatched_note_text(unmatched),
+        )
+        writer.add_annotation(0, note)
+
+    out = io.BytesIO()
+    writer.write(out)
+    pdf.close()
+    return out.getvalue()
 
 
 # ---------------- docx 批注 ----------------
@@ -112,11 +235,10 @@ def _annotate_docx(data: bytes, findings: list[CheckFinding]) -> bytes:
         target = None
         if snippet:
             target = next(
-                (p for p in paragraphs if snippet and snippet in _norm(p.text)),
+                (p for p in paragraphs if snippet in _norm(p.text)),
                 None,
             )
         if target is not None and target.runs:
-            # 批注锚定该段落的全部 run（python-docx 1.2 原生注释）
             doc.add_comment(
                 runs=target.runs, text=text,
                 author=AUTHOR, initials="ADL",
@@ -125,57 +247,84 @@ def _annotate_docx(data: bytes, findings: list[CheckFinding]) -> bytes:
             unmatched.append((finding, text))
 
     if unmatched:
-        doc.add_paragraph()
-        heading = doc.add_paragraph()
-        heading.add_run("问题汇总（未能定位到原文位置）").bold = True
-        for finding, text in unmatched:
-            p = doc.add_paragraph(text)
-            p.paragraph_format.left_indent = None
+        anchor = next((p for p in paragraphs if p.runs), None)
+        if anchor is not None:
+            merged = "\n".join(text for _, text in unmatched)
+            doc.add_comment(
+                runs=anchor.runs, text=merged,
+                author=AUTHOR, initials="ADL",
+            )
+        else:
+            for finding, text in unmatched:
+                doc.add_paragraph(text)
 
     out = io.BytesIO()
     doc.save(out)
     return out.getvalue()
 
 
-# ---------------- 全文+问题清单 docx（pdf/txt/md） ----------------
+# ---------------- txt/md 批注 ----------------
 
 
-def _build_full_doc(filename: str, findings: list[CheckFinding], plaintext: str) -> bytes:
-    """问题清单（前） + 原合同全文（后，可编辑）——独立工具闭环：用户下载后可改全文再覆盖重传。"""
-    doc = DocxDocument()
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title.add_run(f"《{filename}》问题清单").bold = True
-    doc.add_paragraph(
-        "由 ai-doc-lint 自动生成；AI 校对辅助，不构成法律意见。"
-    )
+def _text_norm_map(text: str):
+    norm_chars = []
+    line_map = []
+    for line_idx, line in enumerate(text.splitlines()):
+        for ch in line:
+            if not ch.isspace():
+                norm_chars.append(ch)
+                line_map.append(line_idx)
+    return "".join(norm_chars), line_map
 
-    for idx, finding in enumerate(findings, 1):
-        head = doc.add_paragraph()
-        head.add_run(
-            f"{idx}. {SEV_TAG.get(finding.severity, '【提示】')}"
-            f"{finding.message}"
-        ).bold = True
-        snippet = (finding.location or {}).get("snippet")
-        if snippet:
-            doc.add_paragraph(f"原文：…{snippet}…")
-        if finding.suggestion:
-            doc.add_paragraph(f"建议：{finding.suggestion}")
 
-    # 原合同全文（可编辑；允许用户在下载物中直接修改后覆盖重传）
-    if plaintext and plaintext.strip():
-        doc.add_page_break()
-        full = doc.add_paragraph()
-        full.add_run("原合同全文（可编辑，修改后可直接覆盖重传）").bold = True
-        doc.add_paragraph(
-            "以下为原文件解析出的完整文本，供直接修改使用。"
-        )
-        for line in plaintext.splitlines():
-            doc.add_paragraph(line)
+def _locate_text_line(text: str, snippet: str):
+    target = _norm(snippet)
+    if not target:
+        return None
+    norm_text, line_map = _text_norm_map(text)
+    pos = norm_text.find(target)
+    if pos < 0:
+        return None
+    return line_map[pos]
 
-    out = io.BytesIO()
-    doc.save(out)
-    return out.getvalue()
+
+def _annotate_text(data: bytes, findings: list[CheckFinding]) -> bytes:
+    text = data.decode("utf-8", errors="replace")
+    lines = text.splitlines()
+    inserts: dict[int, list[str]] = {}
+    unmatched = []
+
+    for finding in findings:
+        snippet = (finding.location or {}).get("snippet", "")
+        line_idx = _locate_text_line(text, snippet)
+        if line_idx is None:
+            unmatched.append(finding)
+        else:
+            inserts.setdefault(line_idx, []).append(
+                f"【AI批注·{finding.severity}】{_comment_text(finding)}"
+            )
+
+    header = []
+    if unmatched:
+        header.append("===== AI 批注（未定位问题）=====")
+        for idx, finding in enumerate(unmatched, 1):
+            header.append(
+                f"{idx}. {SEV_TAG.get(finding.severity, '【提示】')}"
+                f"{_comment_text(finding)}"
+            )
+        header.append("===== 以下为原文 =====")
+
+    out_lines = []
+    out_lines.extend(header)
+    for idx, line in enumerate(lines):
+        out_lines.append(line)
+        if idx in inserts:
+            out_lines.extend(inserts[idx])
+
+    result = "\n".join(out_lines)
+    if text.endswith("\n"):
+        result += "\n"
+    return result.encode("utf-8")
 
 
 # ---------------- 任务主体 ----------------
@@ -223,24 +372,21 @@ def run_annotate(self, task_id_str: str):
         ext = (document.ext or "").lower()
         if ext == "docx":
             output = _annotate_docx(data, findings)
-            label = "批注版文档"
+            label = "批注版Word"
+        elif ext == "pdf":
+            output = _annotate_pdf(data, findings)
+            label = "批注版PDF"
         else:
-            # 非 docx：问题清单 + 原合同全文（P1-3 修复：下载物须可直接修改再覆盖重传）
-            plaintext = _load_plaintext(db, document)
-            output = _build_full_doc(document.filename, findings, plaintext or "")
-            label = "问题清单+全文"
+            output = _annotate_text(data, findings)
+            label = "批注版文本"
 
-        key = f"artifacts/{document.id}/annotated/{uuid.uuid4().hex}.docx"
-        storage.put_object(
-            key, output,
-            content_type="application/vnd.openxmlformats-officedocument"
-                         ".wordprocessingml.document",
-        )
+        content_type = MIME_MAP.get(ext, "application/octet-stream")
+        key = f"artifacts/{document.id}/annotated/{uuid.uuid4().hex}.{ext}"
+        storage.put_object(key, output, content_type=content_type)
         db.add(Artifact(
             document_id=document.id, task_id=task.id,
             kind=ART_ANNOTATED, storage_key=key,
-            content_type="application/vnd.openxmlformats-officedocument"
-                         ".wordprocessingml.document",
+            content_type=content_type,
             size_bytes=len(output),
         ))
         db.flush()
@@ -258,6 +404,19 @@ def run_annotate(self, task_id_str: str):
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         log.exception("annotate task %s failed: %s", task_id_str, exc)
+        if self.request.retries >= self.max_retries:
+            try:
+                failed_task = db.get(DocumentTask, uuid.UUID(task_id_str))
+                if failed_task is not None and failed_task.status == task_state.STATUS_RUNNING:
+                    task_state.change_status(
+                        db, failed_task, task_state.STATUS_FAILED,
+                        event_type="task_failed", stage="error",
+                        message=str(exc)[:500],
+                        fields={"error_message": str(exc)[:500]},
+                    )
+            except Exception:  # noqa: BLE001
+                db.rollback()
+            raise
         raise self.retry(exc=exc, countdown=5)
     finally:
         db.close()

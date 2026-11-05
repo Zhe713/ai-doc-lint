@@ -87,7 +87,7 @@ class CrossChecker:
         self.options = options or {}
 
     def run(self) -> None:
-        pack = load_cross_rules(self.document.doc_type)
+        pack = load_cross_rules(self.document.doc_type, str(self.document.user_id))
         if not pack:
             self.collector.note_skipped("cross_rules")
             return

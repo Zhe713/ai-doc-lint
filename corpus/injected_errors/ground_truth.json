@@ -1,0 +1,143 @@
+{
+  "version": "1.1.0",
+  "note": "人工注入已知错误的评测集，真值逐条精确标注；用于证明检出能力，非拟合语料。keyword/also_rule_ids/also_keywords 声明等价命中口径：自定义规则包可能把 rule_id 改名，同一处错误也可能被多个检查器各自报出，这两种情况都不应算漏报或误报。",
+  "files": [
+    {
+      "file": "INJ-01_clean.txt",
+      "desc": "对照组：完全合规，不应用报出任何问题",
+      "expect": []
+    },
+    {
+      "file": "INJ-02_typo.txt",
+      "desc": "注入 3 处错别字：签定/陪偿/防碍",
+      "expect": [
+        {
+          "type": "typo",
+          "checker": "typo",
+          "rule_id": "typo.correction",
+          "keyword": "签定",
+          "note": "签定→签订"
+        },
+        {
+          "type": "typo",
+          "checker": "typo",
+          "rule_id": "typo.correction",
+          "keyword": "陪偿",
+          "note": "陪偿→赔偿"
+        },
+        {
+          "type": "typo",
+          "checker": "typo",
+          "rule_id": "typo.correction",
+          "keyword": "防碍",
+          "note": "防碍→妨碍"
+        }
+      ]
+    },
+    {
+      "file": "INJ-03_clause_missing.txt",
+      "desc": "删除违约责任、争议解决两节",
+      "expect": [
+        {
+          "type": "clause",
+          "checker": "clause",
+          "rule_id": "clause.breach",
+          "keyword": "违约责任",
+          "note": "违约责任缺失"
+        },
+        {
+          "type": "clause",
+          "checker": "clause",
+          "rule_id": "clause.dispute",
+          "keyword": "争议解决",
+          "note": "争议解决缺失"
+        }
+      ]
+    },
+    {
+      "file": "INJ-04_cross_amount.txt",
+      "desc": "金额大写与小写不一致（120,000 vs 壹拾万）",
+      "expect": [
+        {
+          "type": "cross",
+          "checker": "cross",
+          "rule_id": "upper_vs_lower_amount",
+          "also_rule_ids": [
+            "clause.amount.consistency"
+          ],
+          "also_keywords": [
+            "大写"
+          ],
+          "note": "大小写金额不一致"
+        }
+      ]
+    },
+    {
+      "file": "INJ-05_cross_formula.txt",
+      "desc": "单价×数量≠总价（1,200×100 vs 130,000）",
+      "expect": [
+        {
+          "type": "cross",
+          "checker": "cross",
+          "rule_id": "price_times_qty_total",
+          "also_keywords": [
+            "单价"
+          ],
+          "note": "勾稽不成立"
+        }
+      ]
+    },
+    {
+      "file": "INJ-06_cross_date.pdf",
+      "desc": "PDF 载体：签订日期晚于交付日期",
+      "expect": [
+        {
+          "type": "cross",
+          "checker": "cross",
+          "rule_id": "sign_before_delivery",
+          "also_keywords": [
+            "签订日期",
+            "交付日期"
+          ],
+          "note": "日期倒挂"
+        }
+      ]
+    },
+    {
+      "file": "INJ-07_format_a3.pdf",
+      "desc": "PDF 载体：A3 纸张 + 标题层级跳级",
+      "expect": [
+        {
+          "type": "format",
+          "checker": "format",
+          "rule_id": "format.page.size",
+          "note": "非 A4 纸张"
+        },
+        {
+          "type": "format",
+          "checker": "format",
+          "rule_id": "format.heading.sequence",
+          "note": "标题跳级"
+        }
+      ]
+    },
+    {
+      "file": "INJ-08_format.docx",
+      "desc": "docx 载体：非白名单字体 + 无首行缩进",
+      "expect": [
+        {
+          "type": "format",
+          "checker": "format",
+          "rule_id": "format.font.body",
+          "note": "字体不在白名单"
+        },
+        {
+          "type": "format",
+          "checker": "format",
+          "rule_id": "format.paragraph.indent",
+          "note": "首行未缩进"
+        }
+      ]
+    }
+  ]
+}

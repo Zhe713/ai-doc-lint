@@ -94,7 +94,8 @@ def _plaintext(db: Session, document_id) -> str | None:
         db.query(Artifact)
         .filter(Artifact.document_id == document_id,
                 Artifact.kind == "plaintext")
-        .one_or_none()
+        .order_by(Artifact.created_at.desc())
+        .first()
     )
     if artifact is None:
         return None

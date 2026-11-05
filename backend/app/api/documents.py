@@ -20,6 +20,7 @@ from app.models.document import (
     GATE_UNSUPPORTED,
     STATUS_AWAITING,
     STATUS_CANCELLED,
+    STATUS_FAILED,
     STATUS_PARSED,
     STATUS_PENDING,
     Artifact,
@@ -73,6 +74,47 @@ def _pending_count(db: Session, user_id: uuid.UUID) -> int:
             DocumentTask.user_id == user_id, DocumentTask.status.in_([STATUS_PENDING, task_state.STATUS_RUNNING])
         )
     ).scalar_one()
+
+
+# W2 承诺的 sha256 去重：同用户重复上传同一份文件不再重复跑解析与校验流水线。
+# 排除解析失败/已取消的旧文档，允许用户重传被自己取消或解析失败的文件。
+_REUSABLE_STATUSES = {STATUS_PARSED, STATUS_PENDING, task_state.STATUS_RUNNING, STATUS_AWAITING}
+
+
+def _find_duplicates(db: Session, user_id: uuid.UUID, digests: set[str]) -> dict[str, dict]:
+    """返回 {sha256: {document_id, task_id, filename, created_at}}，仅含可复用的既有文档。"""
+    if not digests:
+        return {}
+    rows = db.execute(
+        select(Document.id, Document.sha256, Document.filename, Document.created_at)
+        .where(Document.user_id == user_id, Document.sha256.in_(digests))
+        .order_by(Document.created_at.desc())
+    ).all()
+    found: dict[str, dict] = {}
+    for doc_id, sha, filename, created_at in rows:
+        if sha in found:
+            continue  # 保留最新的一份作为去重目标
+        parse_status = db.execute(
+            select(DocumentTask.status)
+            .where(DocumentTask.document_id == doc_id, DocumentTask.task_type == "parse")
+            .order_by(DocumentTask.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if parse_status not in _REUSABLE_STATUSES:
+            continue
+        existing_task = db.execute(
+            select(DocumentTask.id)
+            .where(DocumentTask.document_id == doc_id)
+            .order_by(DocumentTask.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        found[sha] = {
+            "document_id": str(doc_id),
+            "task_id": str(existing_task) if existing_task else None,
+            "filename": filename,
+            "created_at": created_at.isoformat() if created_at else None,
+        }
+    return found
 
 
 def _get_owned_task(db: Session, user: User, task_id: uuid.UUID) -> DocumentTask:
@@ -155,11 +197,8 @@ async def upload_documents(
     if in_flight + len(files) > PENDING_QUOTA:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, detail=f"当前在途任务 {in_flight} 个，已达上限 {PENDING_QUOTA}")
 
-    group = TaskGroup(user_id=current.id, total=len(files))
-    db.add(group)
-    db.flush()
-
-    created: list[UploadedTaskOut] = []
+    # 第一阶段：逐份校验并算摘要（此时不落存储，重复文件无需白存一份）
+    prepared: list[tuple[UploadFile, str, bytes, str]] = []
     for f in files:
         ext = _ext(f.filename or "")
         if ext in LEGACY_EXT:
@@ -178,8 +217,48 @@ async def upload_documents(
                 status_code=422,
                 detail=f"文件内容与 .{ext} 格式不符，可能已损坏或为伪装文件：{f.filename}。请检查后重新上传。",
             )
+        prepared.append((f, ext, data, hashlib.sha256(data).hexdigest()))
 
-        digest = hashlib.sha256(data).hexdigest()
+    # 第二阶段：sha256 去重（README W2 承诺）。已有同内容且解析成功的文档直接跳过，
+    # 避免重复占用配额、重复跑一遍完整流水线。
+    duplicates = _find_duplicates(db, current.id, {p[3] for p in prepared})
+    fresh: list[tuple[UploadFile, str, bytes, str]] = []
+    skipped: list[dict] = []
+    seen: set[str] = set()
+    for f, ext, data, digest in prepared:
+        dup = duplicates.get(digest)
+        if dup is None and digest in seen:
+            dup = {"document_id": None, "task_id": None,
+                   "filename": f.filename or "", "created_at": None,
+                   "reason": "same_batch"}
+        if dup is not None:
+            skipped.append({
+                "filename": f.filename or "",
+                "document_id": dup.get("document_id"),
+                "task_id": dup.get("task_id"),
+                "created_at": dup.get("created_at"),
+                "reason": dup.get("reason", "already_uploaded"),
+            })
+            continue
+        seen.add(digest)
+        fresh.append((f, ext, data, digest))
+
+    if not fresh:
+        detail = "；".join(
+            f"{d['filename']}（已存在于 {d['created_at'][:10] if d.get('created_at') else '本批次'}）"
+            for d in skipped
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=f"这些文件此前已上传并解析完成，未重复受理：{detail}。如需重新校验，请先在文档列表中删除旧记录。",
+        )
+
+    group = TaskGroup(user_id=current.id, total=len(fresh))
+    db.add(group)
+    db.flush()
+
+    created: list[UploadedTaskOut] = []
+    for f, ext, data, digest in fresh:
         key = f"docs/{current.id}/{uuid.uuid4().hex}/{f.filename}"
         storage.put_object(key, data, content_type=f.content_type)
 
@@ -222,13 +301,14 @@ async def upload_documents(
 
     write_audit(
         db, action="upload_batch", user_id=current.id, username=current.username,
-        target=str(group.id), detail={"count": len(created), "doc_type": doc_type},
+        target=str(group.id),
+        detail={"count": len(created), "doc_type": doc_type, "skipped_duplicates": len(skipped)},
     )
     db.commit()
     for item in created:
         enqueue_parse(item.task_id)
 
-    return UploadOut(group_id=group.id, total=len(created), tasks=created)
+    return UploadOut(group_id=group.id, total=len(created), tasks=created, duplicates=skipped)
 
 
 @router.get("/task-groups", response_model=list[TaskGroupOut])

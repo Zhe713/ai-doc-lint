@@ -134,7 +134,8 @@ def test_custom_json_pack_takes_priority(monkeypatch):
     monkeypatch.setattr(loader, "_SESSION_FACTORY", lambda: FakeSession())
     invalidate_pack_caches()
     try:
-        clauses = load_clause_pack("contract")
+        # 规则包按创建者隔离：FakeSession 不过滤，但仍需传一个合法 user_id 才会走 DB 分支
+        clauses = load_clause_pack("contract", "00000000-0000-0000-0000-000000000001")
         assert any(c["id"] == "clause.custom" for c in clauses)
     finally:
         monkeypatch.setattr(loader, "_SESSION_FACTORY", None)

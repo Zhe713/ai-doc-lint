@@ -43,7 +43,7 @@ class FormatChecker:
         self.db = db
         self.document = document
         self.collector = collector
-        self.rules = load_format_rules()
+        self.rules = load_format_rules(user_id=str(document.user_id))
         self.ext = (document.ext or "").lower()
 
     def run(self) -> None:

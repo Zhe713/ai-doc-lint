@@ -64,7 +64,7 @@ flowchart TB
 
 - **W1 工程骨架**：一键 Docker 部署栈（PostgreSQL 18 + pgvector、Valkey 9、MinIO、FastAPI、Vue3 前端）；
   初始化管理员、开放注册开关、用户名密码登录（JWT 双令牌）、两级 RBAC（管理员/成员）、登录失败限流、健康检查。
-- **W2 异步任务体系**：Celery 四队列（parse/review/annotate/learn）+ Beat 定时巡检；
+- **W2 异步任务体系**：Celery 六队列（parse/review/annotate/learn/cross_compare/embed）+ Beat 定时巡检；
   批量上传受理（单批最多 100 份、在途配额、sha256 去重、.doc 老格式明确拒绝）；
   解析流水线（txt/md 直解、pdfium 文本探测、docling 结构化抽取、扫描件 RapidOCR 兜底，离线可用）；
   人工闸门三选一（OCR 重试 / 带警告继续 / 取消）；WebSocket + 轮询双通道实时进度；卡死任务巡检与断电恢复。
@@ -99,6 +99,14 @@ flowchart TB
   导出三件套（批注 docx + 意见书 PDF 含高管摘要 + Excel 明细双 Sheet，全部 0 token）；
   规则管理界面产品化（四类规则可视化配置 + 复制内置为自定义，无需手写 YAML）；
   首页/健康页看板化（6 统计卡 + 严重度分布条 + 处理进度 + 最近上传，点击直达报告）。
+- **P4 可解释与可验证**（2026-11）：
+  判定来源全链路（`check_findings.source` = rule/hybrid/llm + `llm_reason` + `llm_model`，
+  报告页每条问题可看到「规则命中 / 规则+AI 复核 / AI 判定」及 AI 判定理由）；
+  规则人话解释（`ruleset_explain.py` 把每类规则翻译成「查什么→要求→不合格后果→是否用 AI」，规则页三段式改版）；
+  条款/勾稽双检查器同错竞合时只算一次误报（评测口径按「同一错误允许多规则命中」计）；
+  错别字改「本地候选 → LLM 读整句裁决」，LLM 不可用则不报（宁漏不误），语法恒合法结构进模型前拦截；
+  注入错误精确评测集（8 份合同 / 12 条人工埋错 / txt+pdf+docx 三载体，精确率 1.00 召回率 1.00）；
+  学习闭环反噬修复（混淆集中有明确正确写法的词禁止自动加白，防「签定」被误当误报永久保护）。
 
 ## 快速开始（Docker Desktop / Linux 均可）
 
@@ -157,6 +165,12 @@ docker compose down -v            # 停止并删除全部数据（谨慎）
   功能测试全部基于网络公开真实合同，禁止自造文件（golden 40 份 + diff/导出/矩阵实证均为公开合同）。
 - Golden 回归集：`corpus/acceptance_golden/golden_manifest.json`（v1.0.0，40 份公开合同）；
   F1 回归脚本 `scripts-dev/golden_f1.py`（精确率/召回率/F1 + 标注口径冲突明细）。
+- 注入错误评测集：`corpus/injected_errors/`（8 份合同，人工埋入 12 条已知错误，覆盖
+  typo/clause/cross/format 四类与 txt/pdf/docx 三种载体，真值逐条精确）；
+  生成脚本 `scripts-dev/make_injected_corpus.py`，评测脚本 `scripts-dev/eval_injected.py`
+  （走完整流水线后逐条对账，输出 `injected_eval_result.json` / `injected_eval_report.html`）。
+  与 golden 的分工：**golden 是近似真值，用来看回归有没有退化；注入集是精确真值，用来证明埋进去的错误确实查得出来**。
+  最新一轮：12 条全命中、0 误报（其中 7 条纯规则命中、3 条规则+AI 复核、2 条 AI 语义判定）。
 - 验收交付物：`ux-review/` 下含新用户视角全功能体验测试报告、L3 业务价值代理指标、W7 学习闭环回归报告等。
 - 安全与协作设施：GitHub Actions（测试+覆盖率门禁 / 前端构建 / CodeQL 扫描）、Dependabot 依赖自动更新、Issue/PR 模板。
 

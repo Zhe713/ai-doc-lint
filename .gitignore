@@ -50,10 +50,23 @@ scripts-dev/*.png
 # 真实合同语料（来源与许可见 corpus/manifest.csv，语料文件不入库）
 corpus/*
 !corpus/manifest.csv
+# 注入错误评测集：合同正文由 scripts-dev/make_injected_corpus.py 确定性生成，不入库；
+# 真值是评测口径的唯一声明，必须入库（改了它等于改了评测标准）
+!corpus/injected_errors/
+corpus/injected_errors/*
+!corpus/injected_errors/ground_truth.json
 
 # 构建/测试临时输出
 scripts-dev/*.txt
 scripts-dev/*.err
+*.tsbuildinfo
 
 # 演示交付包自检产物
 demo-pack/_shots/
+
+# WorkBuddy 项目级工作日志（个人记忆，不入库）
+.workbuddy/
+
+# 注入错误评测的临时输出（JSON/HTML 每次跑会覆盖，不入库）
+scripts-dev/injected_eval_result.json
+scripts-dev/injected_eval_report.html

@@ -51,6 +51,11 @@ def _login(client: TestClient) -> str:
     return _token(client, "rules_admin")
 
 
+def _uid(client: TestClient, headers: dict) -> str:
+    """取当前登录用户 id：规则包按创建者隔离，加载时要显式传。"""
+    return client.get("/api/v1/users/me", headers=headers).json()["id"]
+
+
 @pytest.fixture(autouse=True)
 def _use_test_db_session(monkeypatch):
     """loader 的 DB 查询走测试库会话；每测试前清空 rule_packs 防互相污染。"""
@@ -127,7 +132,8 @@ def test_loader_prefers_custom_pack(client, monkeypatch):
     assert r.status_code == 201
 
     invalidate_pack_caches()
-    clauses = load_clause_pack("contract")
+    # 规则包按创建者隔离：必须带 user_id 才会命中该用户的自定义包
+    clauses = load_clause_pack("contract", _uid(client, h))
     assert clauses == [{
         "id": "payment_terms", "name": "付款条款",
         "strong": ["付款"], "weak": ["支付"],
@@ -148,7 +154,7 @@ def test_loader_falls_back_when_disabled(client):
                  json={"enabled": False}, headers=h)
 
     invalidate_pack_caches()
-    clauses = load_clause_pack("contract")
+    clauses = load_clause_pack("contract", _uid(client, h))
     assert all(c["id"] != "payment_terms" for c in clauses)
 
 
@@ -162,7 +168,7 @@ def test_loader_field_pack_custom(client):
     }, headers=h)
     assert r.status_code == 201
     invalidate_pack_caches()
-    fields = load_field_pack("contract")
+    fields = load_field_pack("contract", _uid(client, h))
     assert fields == [{
         "key": "party_a", "label": "甲方", "type": "string",
         "patterns": ["甲方"],
@@ -189,3 +195,30 @@ def test_cross_pack_still_loads_builtin():
     rules = load_cross_rules("contract")
     assert rules is not None
     assert "checks" in rules
+
+
+def test_custom_pack_is_scoped_to_owner(client):
+    """规则包按创建者隔离：别人建的包不能影响我对文档的审查。"""
+    h = {"Authorization": f"Bearer {_login(client)}"}
+    r = client.post("/api/v1/rules/packs", json={
+        "name": "管理员专属条款包",
+        "pack_type": "clause",
+        "doc_type": "contract",
+        "yaml_content": VALID_CLAUSE,
+    }, headers=h)
+    assert r.status_code == 201
+    owner_id = _uid(client, h)
+
+    invalidate_pack_caches()
+    # 创建者自己能命中自定义包
+    own = load_clause_pack("contract", owner_id)
+    assert any(c["id"] == "payment_terms" for c in own)
+
+    # 陌生用户拿到的是内置包
+    stranger = "00000000-0000-0000-0000-00000000abcd"
+    other = load_clause_pack("contract", stranger)
+    assert all(c["id"] != "payment_terms" for c in other)
+
+    # 没有用户上下文（后台任务/测试）时不读任何人的私有包
+    anonymous = load_clause_pack("contract")
+    assert all(c["id"] != "payment_terms" for c in anonymous)

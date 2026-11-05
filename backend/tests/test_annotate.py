@@ -1,9 +1,13 @@
-"""annotate 批注版任务测试：docx 原生批注、未匹配汇总、问题清单、无问题拦截、归属隔离。"""
+"""annotate 批注版任务测试：同格式回写。
+
+覆盖：docx 原生批注、docx 未定位批注挂首段、txt 行内批注、
+txt 未定位开头批注区、pdf 真实合同高亮注解、无问题拦截、
+控制字符清洗与归属隔离。
+"""
 
 import io
 import uuid
 import zipfile
-from types import SimpleNamespace
 
 from docx import Document as DocxDocument
 
@@ -18,6 +22,8 @@ from app.models.document import (
 from conftest import TestSessionLocal
 from sqlalchemy.orm import Session
 from tests.test_intake import _auth, _make_user, _token
+
+GOLDEN_PDF = "/app/corpus/acceptance_golden/build_01_建设工程施工合同.pdf"
 
 
 def _docx_bytes(paragraphs: list[str]) -> bytes:
@@ -79,7 +85,6 @@ def _setup(*, ext="docx", original: bytes | None, findings: list[dict],
 def _run_task(task: DocumentTask):
     from app.tasks import annotate as ann_mod
 
-    # 让任务函数使用测试库会话（默认 SessionLocal 指向 dev 库）
     ann_mod.SessionLocal = TestSessionLocal
     ann_mod.run_annotate.run(str(task.id))
 
@@ -106,7 +111,6 @@ def test_docx_native_comment():
     data = _output_bytes(db, task)
 
     zf = zipfile.ZipFile(io.BytesIO(data))
-    assert "word/comments.xml" in zf.namelist()
     comments = zf.read("word/comments.xml").decode("utf-8")
     assert "履行期限约定不明确" in comments
     assert "明确具体交付日期" in comments
@@ -116,7 +120,7 @@ def test_docx_native_comment():
     db.close()
 
 
-def test_unmatched_finding_goes_summary():
+def test_unmatched_finding_as_comment():
     original = _docx_bytes(["这是一段没有任何定位线索的正文内容。"])
     db, doc, task = _setup(
         ext="docx", original=original,
@@ -126,25 +130,79 @@ def test_unmatched_finding_goes_summary():
         }],
     )
     _run_task(task)
-    text = _doc_text_from_docx(_output_bytes(db, task))
-    assert "问题汇总" in text
-    assert "缺少违约责任条款" in text
+    data = _output_bytes(db, task)
+
+    zf = zipfile.ZipFile(io.BytesIO(data))
+    comments = zf.read("word/comments.xml").decode("utf-8")
+    assert "缺少违约责任条款" in comments
+    assert _doc_text_from_docx(data) == "这是一段没有任何定位线索的正文内容。"
     db.close()
 
 
-def test_checklist_for_pdf_txt():
+def test_txt_inline_annotation():
+    line = "甲方应在约定时间内交付合格货物。"
     db, doc, task = _setup(
-        ext="txt", original=b"plain text body",
-        findings=[
-            {"message": "缺少争议解决条款", "severity": "warning"},
-            {"message": "缺少违约责任条款", "severity": "warning"},
-        ],
+        ext="txt", original=line.encode("utf-8"),
+        findings=[{
+            "message": "履行期限约定不明确",
+            "severity": "warning",
+            "location": {"snippet": "甲方应在约定时间内交付"},
+        }],
     )
     _run_task(task)
-    text = _doc_text_from_docx(_output_bytes(db, task))
-    assert "问题清单" in text
-    assert "缺少争议解决条款" in text
+    text = _output_bytes(db, task).decode("utf-8")
+    lines = text.splitlines()
+    assert line in lines
+    idx = lines.index(line)
+    assert "【AI批注·warning】" in lines[idx + 1]
+    assert "履行期限约定不明确" in lines[idx + 1]
+    db.close()
+
+
+def test_txt_unmatched_header():
+    line = "这是一段正文内容。"
+    db, doc, task = _setup(
+        ext="txt", original=line.encode("utf-8"),
+        findings=[{
+            "message": "缺少违约责任条款",
+            "location": {"snippet": "原文里完全没有的句子"},
+        }],
+    )
+    _run_task(task)
+    text = _output_bytes(db, task).decode("utf-8")
+    assert "未定位问题" in text
     assert "缺少违约责任条款" in text
+    assert line in text
+    db.close()
+
+
+def test_pdf_highlight_annotation():
+    with open(GOLDEN_PDF, "rb") as fh:
+        original = fh.read()
+    db, doc, task = _setup(
+        ext="pdf", original=original,
+        findings=[{
+            "message": "测试高亮问题",
+            "severity": "warning",
+            "location": {"snippet": "合同"},
+        }],
+    )
+    _run_task(task)
+    data = _output_bytes(db, task)
+    assert data[:5] == b"%PDF-"
+
+    from pypdf import PdfReader
+
+    reader = PdfReader(io.BytesIO(data))
+    found = False
+    for page in reader.pages:
+        for annotation in page.annotations or []:
+            obj = annotation.get_object()
+            if obj.get("/Subtype") == "/Highlight":
+                contents = obj.get("/Contents")
+                if contents and "测试高亮问题" in str(contents):
+                    found = True
+    assert found
     db.close()
 
 
@@ -158,6 +216,22 @@ def test_no_open_findings_fails():
     db.refresh(task)
     assert task.status == "failed"
     assert "无需生成" in (task.error_message or "")
+    db.close()
+
+
+def test_control_chars_sanitized():
+    from app.tasks.annotate import _clean
+
+    assert _clean("a\x00b\x01c\x0bd") == "abcd"
+    assert _clean("\t\n\r") == "\t\n\r"
+
+    db, doc, task = _setup(
+        ext="txt", original=b"body",
+        findings=[{"message": "bad\x01char", "severity": "warning"}],
+    )
+    _run_task(task)
+    text = _output_bytes(db, task).decode("utf-8")
+    assert "badchar" in text
     db.close()
 
 

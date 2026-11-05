@@ -7,7 +7,7 @@
 #   backend-api        FastAPI 后端主服务：接收上传、编排 RAG、调 LLM、出报告
 #   celery-worker      Celery worker：后台异步跑大文件解析、校验、批注导出
 #   celery-scheduler   Celery beat：定时任务（卡死巡检、自学习闭环）
-#   web-frontend       前端网页（nginx 托管 React 构建产物，对外 8080 端口）
+#   web-frontend       前端网页（nginx 托管 Vue3 构建产物，对外 8080 端口）
 name: ai-doc-lint
 
 services:

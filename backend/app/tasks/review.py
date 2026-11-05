@@ -51,6 +51,19 @@ def run_review(self, task_id_str: str):
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         logger.exception("review task %s failed: %s", task_id_str, exc)
+        if self.request.retries >= self.max_retries:
+            try:
+                failed_task = db.get(DocumentTask, uuid.UUID(task_id_str))
+                if failed_task is not None and failed_task.status == task_state.STATUS_RUNNING:
+                    task_state.change_status(
+                        db, failed_task, task_state.STATUS_FAILED,
+                        event_type="task_failed", stage="error",
+                        message=str(exc)[:500],
+                        fields={"error_message": str(exc)[:500]},
+                    )
+            except Exception:  # noqa: BLE001
+                db.rollback()
+            raise
         raise self.retry(exc=exc, countdown=5)
     finally:
         db.close()
