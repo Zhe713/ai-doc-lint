@@ -250,6 +250,59 @@ FEEDBACK_CAUSE_LABELS = {
     FEEDBACK_CAUSE_OTHER: "其他",
 }
 
+# 问题来源：纯规则判定 / 大模型判定 / 规则候选+大模型复核
+FINDING_SOURCE_RULE = "rule"
+FINDING_SOURCE_LLM = "llm"
+FINDING_SOURCE_HYBRID = "hybrid"
+FINDING_SOURCES = (
+    FINDING_SOURCE_RULE,
+    FINDING_SOURCE_LLM,
+    FINDING_SOURCE_HYBRID,
+)
+FINDING_SOURCE_LABELS = {
+    FINDING_SOURCE_RULE: "规则命中",
+    FINDING_SOURCE_LLM: "AI 判定",
+    FINDING_SOURCE_HYBRID: "规则候选·AI 复核",
+}
+
+# 放行（版本审查通过）来源
+RELEASE_DIFF_AUTO = "diff_auto"      # 版本对比无差异，自动放行
+RELEASE_MANUAL = "manual"            # 人工放行
+RELEASE_KINDS = (RELEASE_DIFF_AUTO, RELEASE_MANUAL)
+RELEASE_KIND_LABELS = {
+    RELEASE_DIFF_AUTO: "版本无差异自动放行",
+    RELEASE_MANUAL: "人工放行",
+}
+
+
+class DocumentRelease(Base):
+    """文档放行记录：把「通过/放行」变成可查询的事实，而不是界面上的一个徽标。
+
+    一次放行 = 一条记录（谁、依据什么、相对哪一版、变更比例多少）。
+    报告页与批量矩阵据此展示「已放行」，审计日志据此追溯。
+    """
+
+    __tablename__ = "document_releases"
+    __table_args__ = (
+        Index("ix_document_releases_doc", "document_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    baseline_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True)
+    changed_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False)
+
 
 class CheckFinding(Base, TimestampMixin):
     """校验发现的问题清单：可筛选、可忽略/标记已修复，是 W7 自动学习的正负例来源。"""
@@ -289,6 +342,14 @@ class CheckFinding(Base, TimestampMixin):
     feedback_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # W7-5 反馈原因（误报时用户选择，便于归因统计）：词表外合法用法/规则误判/上下文不符/其他
     feedback_cause: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # 问题来源（rule/llm/hybrid），报告页据此区分规则命中与大模型判定
+    source: Mapped[str] = mapped_column(
+        String(8), nullable=False, default=FINDING_SOURCE_RULE,
+        server_default=FINDING_SOURCE_RULE, index=True,
+    )
+    # 大模型判定时的推理依据与所用模型（便于解释与审计，规则命中为空）
+    llm_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    llm_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 # ---- 字段抽取与交叉比对（W5） ----

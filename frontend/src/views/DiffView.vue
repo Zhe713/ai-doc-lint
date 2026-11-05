@@ -18,8 +18,24 @@
         <el-select v-model="docB" filterable placeholder="选择对比文档 B" style="width: 300px">
           <el-option v-for="d in docs" :key="d.id" :label="d.filename" :value="d.id" />
         </el-select>
-        <el-switch v-model="autoBypass" active-text="无差异自动放行" style="margin-left: 16px" />
+        <el-switch v-model="autoBypass" active-text="允许无差异自动放行" style="margin-left: 16px" />
         <el-button type="primary" :loading="loading" @click="runDiff">开始对比</el-button>
+      </div>
+      <div class="release-bar">
+        <!-- 放行是一个真实动作：点下去会写记录，报告页会显示「已放行」 -->
+        <el-button
+          type="success"
+          :disabled="!canRelease"
+          :loading="releasing"
+          @click="onRelease"
+        >
+          放行 B 版（{{ docBName || '未选择' }}）
+        </el-button>
+        <span v-if="!canRelease" class="hint">{{ releaseHint }}</span>
+        <el-tag v-if="result?.released_at" type="success" effect="dark">
+          该版本已于 {{ fmt(result.released_at) }} 放行
+        </el-tag>
+        <el-button v-if="result?.released_at" link type="danger" @click="onRevoke">撤销放行</el-button>
       </div>
     </el-card>
 
@@ -48,9 +64,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import client from '@/api/client'
-import { runDocumentDiff } from '@/api/diff'
+import { releaseDocument, revokeRelease, runDocumentDiff } from '@/api/diff'
+import { getCoverage } from '@/api/findings'
 
 interface DiffRow { type: string; text: string; line_a: number | null; line_b: number | null }
 interface DiffResp {
@@ -61,6 +79,7 @@ interface DiffResp {
   stats: { same_lines: number; add_lines: number; del_lines: number; changed_ratio: number }
   truncated: boolean
   rows: DiffRow[]
+  released_at?: string | null
 }
 
 const docs = ref<Array<{ id: string; filename: string }>>([])
@@ -68,8 +87,23 @@ const docA = ref('')
 const docB = ref('')
 const autoBypass = ref(true)
 const loading = ref(false)
+const releasing = ref(false)
 const result = ref<DiffResp | null>(null)
 const showAll = ref(false)
+
+const docBName = computed(() => docs.value.find((d) => d.id === docB.value)?.filename ?? '')
+
+const canRelease = computed(() => {
+  if (!result.value || !docA.value || !docB.value) return false
+  if (docA.value === docB.value) return false
+  return autoBypass.value ? result.value.identical : true
+})
+
+const releaseHint = computed(() => {
+  if (!result.value) return '先完成一次对比，才能放行'
+  if (!autoBypass.value) return ''
+  return '两版存在差异，自动放行已避免；如确认可接受，请关闭「允许无差异自动放行」后手动放行'
+})
 
 onMounted(async () => {
   const resp = await client.get('/documents')
@@ -84,10 +118,47 @@ async function runDiff() {
   }
   loading.value = true
   try {
-    result.value = await runDocumentDiff(docA.value, docB.value, autoBypass.value)
+    const data = await runDocumentDiff(docA.value, docB.value, autoBypass.value)
+    // 放行状态来自文档本身（放行记录落库），不是页面里的一个开关
+    const cov = await getCoverage(docB.value).catch(() => null)
+    result.value = { ...data, released_at: cov?.released?.created_at ?? null }
   } finally {
     loading.value = false
   }
+}
+
+async function onRelease() {
+  if (!result.value || !docA.value || !docB.value) return
+  const kind = result.value.identical ? 'diff_auto' : 'manual'
+  if (kind === 'manual') {
+    await ElMessageBox.confirm(
+      '两版存在差异，手动放行意味着你确认这些差异可接受、无需重新审查。继续？',
+      '确认手动放行',
+      { type: 'warning', confirmButtonText: '确认放行', cancelButtonText: '取消' }
+    )
+  }
+  releasing.value = true
+  try {
+    const res = await releaseDocument(docB.value, docA.value, kind, docBName.value || undefined)
+    result.value = { ...result.value, released_at: res.released.created_at }
+    ElMessage.success(`已放行：${res.released.label}`)
+  } finally {
+    releasing.value = false
+  }
+}
+
+async function onRevoke() {
+  if (!docB.value) return
+  await ElMessageBox.confirm('撤销后，该版本会重新回到"未放行"状态。继续？', '撤销放行',
+    { type: 'warning' })
+  const res = await revokeRelease(docB.value)
+  result.value = result.value ? { ...result.value, released_at: null } : null
+  ElMessage.success(`已撤销 ${res.revoked} 条放行记录`)
+}
+
+function fmt(iso: string | null | undefined) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('zh-CN')
 }
 
 const visibleRows = computed(() => {
@@ -122,6 +193,19 @@ const visibleRows = computed(() => {
 .vs {
   color: #909399;
   font-weight: 600;
+}
+.release-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #ebeef5;
+  flex-wrap: wrap;
+}
+.release-bar .hint {
+  color: #909399;
+  font-size: 12px;
 }
 .meta {
   color: #909399;

@@ -26,6 +26,64 @@ router = APIRouter(tags=["compare"])
 MIN_DOCS = 2
 MAX_DOCS = 50
 
+# 任务还在跑的状态：此时再触发只复用，不重复入队
+_IN_FLIGHT = ("pending", "running", "retrying")
+
+
+def _find_inflight_task(db: Session, group_id: uuid.UUID) -> DocumentTask | None:
+    rows = db.execute(
+        select(DocumentTask)
+        .where(
+            DocumentTask.task_type == "cross_compare",
+            DocumentTask.status.in_(_IN_FLIGHT),
+        )
+        .order_by(DocumentTask.created_at.desc())
+        .limit(20)
+    ).scalars().all()
+    for row in rows:
+        if str((row.stats or {}).get("compare_group_id")) == str(group_id):
+            return row
+    return None
+
+
+def _enqueue_group_compare(db: Session, group: CompareGroup, user: User,
+                           *, force: bool = False) -> DocumentTask:
+    """为一个比对组入队（幂等）。
+
+    建组接口本身就会自动入队，前端如果又点了一次「触发比对」，
+    以前会真的跑两遍（重复消耗队列与 LLM）。这里统一入口：
+    已有在途任务就直接复用；force=True 时（人工点「重新比对」）才另起一个。
+    """
+    if not force:
+        existing = _find_inflight_task(db, group.id)
+        if existing is not None:
+            return existing
+
+    first = db.execute(
+        select(CompareGroupDocument)
+        .where(CompareGroupDocument.compare_group_id == group.id)
+        .order_by(CompareGroupDocument.position)
+    ).scalars().first()
+    if first is None:
+        raise HTTPException(status_code=422, detail="比对组里没有文档")
+
+    task = DocumentTask(
+        group_id=None,
+        document_id=first.document_id,
+        user_id=user.id,
+        task_type="cross_compare",
+        status=STATUS_PENDING,
+        max_attempts=1,
+        stats={"compare_group_id": str(group.id)},
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    group.status = STATUS_PENDING
+    db.commit()
+    enqueue_cross_compare(task.id)
+    return task
+
 
 def _get_owned_group(db: Session, user: User, group_id: uuid.UUID) -> CompareGroup:
     group = db.get(CompareGroup, group_id)
@@ -51,11 +109,14 @@ def _group_out(db: Session, group: CompareGroup) -> dict:
 
 
 def _document_summary(db: Session, doc: Document) -> dict:
+    """比对组里的文档摘要：前端要显示大小与上传时间，字段就得真的返回。"""
     return {
         "id": str(doc.id),
         "filename": doc.filename,
         "doc_type": doc.doc_type,
         "status": doc.status,
+        "size_bytes": doc.size_bytes,
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
     }
 
 
@@ -99,28 +160,8 @@ def create_compare_group(
     db.commit()
     db.refresh(group)
 
-    # P1-1：建组即自动入队，避免"创建后卡 pending 需手动触发"
-    first = db.execute(
-        select(CompareGroupDocument)
-        .where(CompareGroupDocument.compare_group_id == group.id)
-        .order_by(CompareGroupDocument.position)
-    ).scalars().first()
-    task = DocumentTask(
-        group_id=None,
-        document_id=first.document_id,
-        user_id=current.id,
-        task_type="cross_compare",
-        status=STATUS_PENDING,
-        max_attempts=1,
-        stats={"compare_group_id": str(group.id)},
-    )
-    db.add(task)
-    db.commit()
-    db.refresh(task)
-    group.status = STATUS_PENDING
-    db.commit()
-    enqueue_cross_compare(task.id)
-
+    # 建组即自动入队（避免"创建后卡 pending 需手动触发"）；幂等，不会双跑
+    _enqueue_group_compare(db, group, current)
     return _group_out(db, group)
 
 
@@ -219,29 +260,7 @@ def trigger_compare(
     if doc_count < MIN_DOCS:
         raise HTTPException(status_code=422, detail=f"至少选择 {MIN_DOCS} 份文档")
 
-    # 以首份文档为任务载体（任务状态机要求 document_id 非空）
-    first = db.execute(
-        select(CompareGroupDocument)
-        .where(CompareGroupDocument.compare_group_id == group.id)
-        .order_by(CompareGroupDocument.position)
-    ).scalars().first()
-
-    task = DocumentTask(
-        group_id=None,
-        document_id=first.document_id,
-        user_id=current.id,
-        task_type="cross_compare",
-        status=STATUS_PENDING,
-        max_attempts=1,
-        stats={"compare_group_id": str(group.id)},
-    )
-    db.add(task)
-    db.commit()
-    db.refresh(task)
-    group.status = STATUS_PENDING
-    db.commit()
-
-    enqueue_cross_compare(task.id)
+    task = _enqueue_group_compare(db, group, current)
     return {"task_id": str(task.id), "group_id": str(group.id), "status": "queued"}
 
 

@@ -93,7 +93,7 @@
                       {{ cellText(row.cells[d.id]) }}
                     </div>
                     <div class="cell-meta">
-                      <el-tag size="tiny" :type="cellSourceType(row.cells[d.id].source)" effect="plain">
+                      <el-tag size="small" :type="cellSourceType(row.cells[d.id].source)" effect="plain">
                         {{ cellSourceLabel(row.cells[d.id].source) }}
                       </el-tag>
                     </div>
@@ -139,7 +139,7 @@
               <div class="doc-opt">
                 <span class="doc-opt-name">{{ d.filename }}</span>
                 <span class="doc-opt-meta">
-                  <el-tag size="tiny" effect="plain">{{ d.doc_type }}</el-tag>
+                  <el-tag size="small" effect="plain">{{ d.doc_type }}</el-tag>
                   <span>{{ fmtTime(d.created_at) }}</span>
                   <span>{{ fmtSize(d.size_bytes) }}</span>
                 </span>
@@ -179,7 +179,13 @@ import { listDocuments } from '@/api/findings'
 const groups = ref<CompareGroup[]>([])
 const detail = ref<CompareGroupDetail | null>(null)
 const currentId = ref<string | null>(null)
-const docs = ref<Array<{ id: string; filename: string; doc_type: string }>>([])
+const docs = ref<Array<{
+  id: string
+  filename: string
+  doc_type: string
+  size_bytes: number
+  created_at: string | null
+}>>([])
 
 const createVisible = ref(false)
 const newName = ref('')
@@ -191,8 +197,14 @@ function statusLabel(s: string): string {
   return { pending: '排队中', running: '比对中', parsed: '已完成', failed: '失败' }[s] ?? s
 }
 
+const SEVERITY_TAG: Record<string, 'danger' | 'warning' | 'info'> = {
+  error: 'danger',
+  warning: 'warning',
+  info: 'info'
+}
+
 function severityType(s: string): 'danger' | 'warning' | 'info' {
-  return { error: 'danger', warning: 'warning', info: 'info' }[s] ?? 'info'
+  return SEVERITY_TAG[s] ?? 'info'
 }
 
 function cellText(cell: CompareMatrixCell): string {
@@ -295,13 +307,12 @@ async function createGroup() {
   try {
     const g = await createCompareGroup(newName.value.trim(), selectedDocs.value)
     createVisible.value = false
-    ElMessage.success('比对组已创建，自动开始比对')
+    ElMessage.success('比对组已创建，自动开始比对（无需再点触发）')
     await loadGroups()
     await selectGroup(g.id)
-    // 创建后自动触发比对（P1-1 修复：无需用户再手动点“触发比对”）
+    // 后端建组时已自动入队，这里只等结果，不再第二次触发（否则会双跑一遍）
     comparing.value = true
     try {
-      await triggerCompare(g.id)
       await pollUntilDone()
     } finally {
       comparing.value = false

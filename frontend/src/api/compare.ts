@@ -34,8 +34,12 @@ export interface CompareGroupDetail extends CompareGroup {
     filename: string
     doc_type: string
     status: string
+    size_bytes: number
+    created_at: string | null
   }>
   matrix: Record<string, Record<string, CompareMatrixCell>>
+  /** 字段键 → 中文名；后端一直返回，之前前端类型漏了它 */
+  field_labels: Record<string, string>
   findings: CompareFinding[]
 }
 
