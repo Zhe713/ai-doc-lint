@@ -15,9 +15,9 @@ jobs:
       - name: 准备 .env（CI 使用示例配置）
         run: cp .env.example .env
       - name: 构建并启动测试栈（db/cache/storage/api）
-        run: docker compose up -d --build --wait api
+        run: docker compose up -d --build --wait backend-api
       - name: 容器内运行全量 pytest（含覆盖率门禁 ≥70%）
-        run: docker compose exec -T api pytest -q --cov=app --cov-report=term --cov-fail-under=70
+        run: docker compose exec -T backend-api pytest -q --cov=app --cov-report=term --cov-fail-under=70
 
   frontend-build:
     name: 前端类型检查与构建
