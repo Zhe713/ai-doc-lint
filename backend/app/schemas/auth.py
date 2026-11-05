@@ -70,3 +70,32 @@ class SettingsIn(BaseModel):
     open_registration: bool | None = None
     data_retention_days: int | None = Field(default=None, ge=0, le=3650)
     llm_daily_quota: int | None = Field(default=None, ge=0, le=100000)
+
+
+class UserUpdateIn(BaseModel):
+    """管理员修改用户：停用/启用、改角色、重置密码（三者可单独提交）。"""
+
+    is_active: bool | None = None
+    roles: list[str] | None = Field(default=None, description="角色名列表，如 ['admin']")
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+
+    @field_validator("roles")
+    @classmethod
+    def roles_known(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        allowed = {"admin", "member"}
+        unknown = [r for r in v if r not in allowed]
+        if unknown:
+            raise ValueError(f"未知角色：{', '.join(unknown)}")
+        if not v:
+            raise ValueError("至少要保留一个角色")
+        return sorted(set(v))
+
+
+class LLMUsageOut(BaseModel):
+    used: int
+    limit: int
+    unlimited: bool
+    remaining: int | None = None
+    exhausted: bool = False

@@ -35,6 +35,19 @@ class LLMCallError(RuntimeError):
     """所有供应商（含重试）均失败。"""
 
 
+class LLMQuotaExceededError(LLMCallError):
+    """当日智能审查额度已用完。
+
+    继承 LLMCallError，是为了让既有调用方的降级分支（catch LLMCallError）
+    天然生效：额度耗尽时审查继续跑，只是退化成纯规则模式，而不是整单失败。
+    """
+
+    def __init__(self, used: int, limit: int):
+        self.used = used
+        self.limit = limit
+        super().__init__(f"今日智能审查额度已用完（{used}/{limit} 次），本次仅执行规则检查")
+
+
 @dataclass(frozen=True)
 class Provider:
     name: str
@@ -137,6 +150,43 @@ def _write_log(
     db.commit()
 
 
+def llm_usage_today(db: Session) -> dict:
+    """当日用量：已调用次数 / 上限（0 或 None 表示不限制）。
+
+    口径是「调用次数」而不是 token：管理员在设置页看到的就是这个数字，
+    设置项写的也是「次/天」，两边必须一致。
+    """
+    from sqlalchemy import func, select
+
+    from app.services import setup_service
+
+    used = db.execute(
+        select(func.count(LLMCallLog.id)).where(
+            LLMCallLog.created_at >= func.date_trunc("day", func.now())
+        )
+    ).scalar_one()
+    limit = setup_service.get_llm_daily_quota(db)
+    limited = bool(limit)
+    return {
+        "used": int(used),
+        "limit": int(limit) if limit else 0,
+        "unlimited": not limited,
+        "remaining": max(int(limit) - int(used), 0) if limited else None,
+        "exhausted": bool(limited and used >= limit),
+    }
+
+
+def _ensure_quota(session: Session) -> None:
+    """额度校验：超限抛 LLMQuotaExceededError（调用方据此降级为纯规则）。"""
+    try:
+        usage = llm_usage_today(session)
+    except Exception as exc:  # noqa: BLE001  统计不可用时放行，不能因限额功能挂掉审查
+        log.warning("读取 LLM 用量失败，跳过限额校验: %s", type(exc).__name__)
+        return
+    if usage["exhausted"]:
+        raise LLMQuotaExceededError(usage["used"], usage["limit"])
+
+
 def chat(
     messages: list[dict],
     *,
@@ -163,6 +213,7 @@ def chat(
     last_error: Exception | None = None
     total_latency = 0
     try:
+        _ensure_quota(session)
         for provider in providers:
             resp, latency, error = _call_with_retry(provider, create_kwargs)
             total_latency += latency

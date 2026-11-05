@@ -17,8 +17,29 @@
       <el-form-item label="每日智能审查限额">
         <el-input-number v-model="llmDailyQuota" :min="0" :max="100000" style="width: 200px" />
         <span style="margin-left: 12px; color: #909399; font-size: 12px">
-          次/天；0 表示不限制。达到限额后深度条款审查将暂缓
+          次/天；0 表示不限制。达到限额后深度条款审查自动降级为纯规则，不会报错
         </span>
+      </el-form-item>
+      <el-form-item label="今日已用">
+        <template v-if="usage">
+          <el-progress
+            v-if="!usage.unlimited && usage.limit > 0"
+            :percentage="usagePercent"
+            :status="usage.exhausted ? 'exception' : undefined"
+            :stroke-width="14"
+            style="width: 260px"
+          />
+          <span class="usage-text">
+            {{ usage.used }} / {{ usage.unlimited ? '不限' : usage.limit }} 次
+            <template v-if="usage.exhausted">
+              <el-tag size="small" type="danger" style="margin-left: 6px">已用完，审查降级为纯规则</el-tag>
+            </template>
+            <template v-else-if="!usage.unlimited">
+              <span style="margin-left: 6px; color: #909399">剩余 {{ usage.remaining }} 次</span>
+            </template>
+          </span>
+        </template>
+        <span v-else class="usage-text">—</span>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="saving" @click="saveAll">保存设置</el-button>
@@ -30,16 +51,22 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
-import { getAdminSettings, patchAdminSettings } from '@/api/auth'
+import { getAdminSettings, getLLMUsage, patchAdminSettings, type LLMUsage } from '@/api/auth'
 
 const openRegistration = ref(true)
 const dataRetentionDays = ref<number | null>(0)
 const llmDailyQuota = ref<number | null>(0)
+const usage = ref<LLMUsage | null>(null)
 const loading = ref(false)
 const saving = ref(false)
+
+const usagePercent = computed(() => {
+  if (!usage.value || usage.value.unlimited || usage.value.limit <= 0) return 0
+  return Math.min(Math.round((usage.value.used / usage.value.limit) * 100), 100)
+})
 
 onMounted(async () => {
   loading.value = true
@@ -48,6 +75,7 @@ onMounted(async () => {
     openRegistration.value = s.open_registration
     dataRetentionDays.value = s.data_retention_days ?? 0
     llmDailyQuota.value = s.llm_daily_quota ?? 0
+    usage.value = s.llm_usage ?? (await getLLMUsage().catch(() => null))
   } finally {
     loading.value = false
   }
@@ -59,11 +87,12 @@ async function saveAll() {
     const result = await patchAdminSettings({
       open_registration: openRegistration.value,
       data_retention_days: dataRetentionDays.value ?? 0,
-      llm_daily_quota: llmDailyQuota.value ?? 0
+      llm_daily_quota: llmDailyQuota.value ?? null
     })
     openRegistration.value = result.open_registration
     dataRetentionDays.value = result.data_retention_days ?? 0
     llmDailyQuota.value = result.llm_daily_quota ?? 0
+    usage.value = result.llm_usage ?? (await getLLMUsage().catch(() => null))
     ElMessage.success('设置已保存')
   } catch (err: any) {
     ElMessage.error(err?.response?.data?.detail ?? '保存失败')
@@ -85,3 +114,10 @@ async function save() {
   }
 }
 </script>
+
+<style scoped>
+.usage-text {
+  color: #606266;
+  font-size: 13px;
+}
+</style>

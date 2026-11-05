@@ -130,7 +130,7 @@ const alertTypeLabels: Record<string, string> = {
   task_stalled: '任务卡死'
 }
 
-const stats = ref<SystemStats>({})
+const stats = ref<Partial<SystemStats>>({})
 const alertRows = ref<AlertItem[]>([])
 const loading = ref(false)
 

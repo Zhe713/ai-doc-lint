@@ -30,7 +30,7 @@
         <el-table-column prop="username" label="操作人" width="130" />
         <el-table-column label="详情" min-width="260">
           <template #default="{ row }">
-            <span class="detail">{{ formatDetail(row) }}</span>
+            <span class="detail">{{ formatDetail(row as AuditLogItem) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="ip" label="来源 IP" width="140" />

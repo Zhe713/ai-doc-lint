@@ -97,6 +97,14 @@ def set_setting(db: Session, key: str, value, updated_by: uuid.UUID | None = Non
     db.commit()
 
 
+def clear_setting(db: Session, key: str) -> None:
+    """删除设置项，回到「未设置」的默认语义（如限额不限、保留策略默认）。"""
+    row = db.get(SystemSetting, key)
+    if row is not None:
+        db.delete(row)
+    db.commit()
+
+
 def create_initial_admin(db: Session, username: str, password: str) -> User:
     """仅在系统中没有任何用户时允许创建首个管理员。"""
     if not needs_setup(db):

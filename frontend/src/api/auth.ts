@@ -53,10 +53,32 @@ export const fetchMe = () => client.get<UserInfo>('/users/me').then((r) => r.dat
 export const listUsers = () =>
   client.get<UserInfo[]>('/admin/users').then((r) => r.data)
 
+export interface UserPatch {
+  is_active?: boolean
+  roles?: string[]
+  password?: string
+}
+
+/** 管理员修改用户：停用/启用、改角色、重置密码 */
+export const updateUser = (id: string, patch: UserPatch) =>
+  client.patch<UserInfo>(`/admin/users/${id}`, patch).then((r) => r.data)
+
+export interface LLMUsage {
+  used: number
+  limit: number
+  unlimited: boolean
+  remaining: number | null
+  exhausted: boolean
+}
+
+export const getLLMUsage = () =>
+  client.get<LLMUsage>('/admin/llm-usage').then((r) => r.data)
+
 export interface AdminSettings {
   open_registration: boolean
   data_retention_days: number | null
   llm_daily_quota: number | null
+  llm_usage?: LLMUsage
 }
 
 export const getAdminSettings = () =>
