@@ -3,6 +3,7 @@
     <el-card class="auth-card">
       <template #header>
         <div class="brand">
+          <img src="/logo.svg" alt="logo" class="brand-logo" />
           <div class="title">ai-doc-lint</div>
           <div class="subtitle">AI 文档校验 · 让 AI 做校对，行家做判断</div>
         </div>
@@ -87,6 +88,12 @@ async function showForgot() {
 }
 .brand {
   text-align: center;
+}
+.brand-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  margin-bottom: 8px;
 }
 .title {
   font-size: 20px;

@@ -1,7 +1,10 @@
 <template>
   <el-container class="layout">
     <el-aside width="220px" class="aside">
-      <div class="logo">ai-doc-lint</div>
+      <div class="logo">
+        <img src="/logo.svg" alt="logo" class="logo-icon" />
+        <span>ai-doc-lint</span>
+      </div>
       <el-menu :default-active="route.path" router class="menu" background-color="#1f2d3d"
         text-color="#bfcbd9" active-text-color="#ffffff">
         <el-menu-item index="/">
@@ -125,12 +128,19 @@ onBeforeUnmount(() => {
 }
 .logo {
   height: 60px;
-  line-height: 60px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-weight: 700;
   font-size: 17px;
   letter-spacing: 0.5px;
   border-bottom: 1px solid #2a3a4d;
+}
+.logo-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
 }
 .menu {
   border-right: none;

@@ -317,6 +317,7 @@ import {
   SOURCE_TAG_TYPE,
   type TagType,
   isAiAssisted,
+  listDocuments,
   listFields,
   listFindings,
   setFindingStatus
@@ -329,7 +330,23 @@ import { getPreview, getTask } from '@/api/documents'
 
 const route = useRoute()
 const router = useRouter()
-const docId = route.params.docId as string
+let docId = route.params.docId as string
+
+// 完整 UUID 才能直接查；支持 8 位以上前缀短链（如分享/手输），自动展开并替换地址
+const FULL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+async function resolveShortId() {
+  if (FULL_UUID.test(docId)) return
+  try {
+    const docs = await listDocuments()
+    const hit = docId.length >= 8 ? docs.find((d) => d.id.startsWith(docId)) : undefined
+    if (hit) {
+      docId = hit.id
+      router.replace({ name: 'reports', params: { docId: hit.id } })
+    }
+  } catch {
+    /* 列表拉不到时保持原样，由 reload 的正常报错兜底 */
+  }
+}
 
 const loading = ref(false)
 const findings = ref<Finding[]>([])
@@ -639,7 +656,10 @@ function saveBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-onMounted(reload)
+onMounted(async () => {
+  await resolveShortId()
+  await reload()
+})
 onUnmounted(() => {
   if (pendingTimer) window.clearTimeout(pendingTimer)
 })
