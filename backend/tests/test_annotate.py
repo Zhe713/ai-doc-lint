@@ -6,9 +6,11 @@ txt 未定位开头批注区、pdf 真实合同高亮注解、无问题拦截、
 """
 
 import io
+import os
 import uuid
 import zipfile
 
+import pytest
 from docx import Document as DocxDocument
 
 from app.db import storage
@@ -23,7 +25,10 @@ from conftest import TestSessionLocal
 from sqlalchemy.orm import Session
 from tests.test_intake import _auth, _make_user, _token
 
+# golden 语料（真实合同）不随仓库分发（.gitignore），仅本地/内网环境存在；
+# CI 上跳过依赖语料的用例，其余批注逻辑用合成 docx/txt 全覆盖
 GOLDEN_PDF = "/app/corpus/acceptance_golden/build_01_建设工程施工合同.pdf"
+_HAS_GOLDEN_PDF = os.path.exists(GOLDEN_PDF)
 
 
 def _docx_bytes(paragraphs: list[str]) -> bytes:
@@ -176,6 +181,9 @@ def test_txt_unmatched_header():
     db.close()
 
 
+@pytest.mark.skipif(
+    not _HAS_GOLDEN_PDF, reason="golden 语料未随仓库分发（.gitignore），仅本地环境可跑"
+)
 def test_pdf_highlight_annotation():
     with open(GOLDEN_PDF, "rb") as fh:
         original = fh.read()
