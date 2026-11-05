@@ -58,10 +58,14 @@ const searching = ref(false)
 const searched = ref(false)
 
 function highlight(text: string): string {
+  // 先做 HTML 转义，避免文档原文里的 <script> 等被 v-html 当成可执行代码（XSS）
+  const safe = text.replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>
+  )[c] as string)
   const q = query.value.trim()
-  if (!q) return text
+  if (!q) return safe
   const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return text.replace(new RegExp(escaped, 'gi'), (m) => `<mark>${m}</mark>`)
+  return safe.replace(new RegExp(escaped, 'gi'), (m) => `<mark>${m}</mark>`)
 }
 
 /** 综合相关度展示：优先 rerank/rrf 分数，退化为语义相似度或关键词命中 */

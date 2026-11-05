@@ -79,9 +79,12 @@ def diff_texts(text_a: str, text_b: str, auto_bypass: bool = False) -> dict:
     }
 
 
-def _get_plaintext(db: Session, doc_id: str) -> tuple[str, str]:
+def _get_plaintext(db: Session, doc_id: str, current: User) -> tuple[str, str]:
     doc = db.get(Document, doc_id)
     if doc is None:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    if doc.user_id != current.id:
+        # 越权保护：任何用户都只能读取自己名下文档的原文
         raise HTTPException(status_code=404, detail="文档不存在")
     art = (
         db.query(Artifact)
@@ -106,8 +109,8 @@ def document_diff(
     if doc_a_id == doc_b_id:
         raise HTTPException(status_code=422, detail="请选择两份不同的文档进行比对")
 
-    fn_a, text_a = _get_plaintext(db, doc_a_id)
-    fn_b, text_b = _get_plaintext(db, doc_b_id)
+    fn_a, text_a = _get_plaintext(db, doc_a_id, current)
+    fn_b, text_b = _get_plaintext(db, doc_b_id, current)
 
     # 单一实现：差异计算只在 diff_texts 里写一次（此前这里是复制体，两边会漂移）
     result = diff_texts(text_a, text_b, auto_bypass=auto_bypass)
@@ -151,8 +154,8 @@ def release_after_diff(
     if not baseline_id or baseline_id == doc_b_id:
         raise HTTPException(status_code=422, detail="请选择用于对照的基线版本")
 
-    _, text_a = _get_plaintext(db, baseline_id)
-    _, text_b = _get_plaintext(db, doc_b_id)
+    _, text_a = _get_plaintext(db, baseline_id, current)
+    _, text_b = _get_plaintext(db, doc_b_id, current)
     result = diff_texts(text_a, text_b, auto_bypass=True)
 
     if body.kind == RELEASE_DIFF_AUTO and not result["identical"]:

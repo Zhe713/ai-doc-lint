@@ -121,9 +121,20 @@ def explain_builtin_pack(
     """内置包的人话解释（规则页点「这条规则在查什么」时用，无需先拿原文）。"""
     name = file.replace(".json", "").replace(".yaml", "")
     try:
-        content = _read_builtin(name)
+        raw = _read_builtin(name)
     except RuleConfigError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    # _read_builtin 返回的是 JSON 文本，必须解析成 dict 再交给 explain_pack，
+    # 否则 explain_pack 会把字符串当「非 dict」直接置空，导致内置包解释永远为空。
+    if isinstance(raw, str):
+        try:
+            content = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=500, detail=f"内置规则包内容损坏: {exc}") from exc
+    else:
+        content = raw
+    if not isinstance(content, dict):
+        raise HTTPException(status_code=500, detail="内置规则包内容不是 JSON 对象")
     pack_type = next((p["pack_type"] for p in BUILTIN_PACKS if p["file"] == file), None)
     if pack_type is None:
         raise HTTPException(status_code=404, detail="未找到该内置规则包的类型")
@@ -288,6 +299,9 @@ def list_rule_packs(
     current: User = Depends(get_current_user),
 ):
     stmt = select(RulePack).order_by(RulePack.updated_at.desc())
+    # 越权保护：非管理员只能看到自己创建的规则包，不能枚举他人私有规则内容
+    if not current.is_superuser and "admin" not in current.role_names:
+        stmt = stmt.where(RulePack.user_id == current.id)
     if pack_type:
         if pack_type not in PACK_TYPES:
             raise HTTPException(status_code=422, detail=f"未知包类型: {pack_type}")
@@ -304,6 +318,8 @@ def rule_pack_detail(
 ):
     p = db.get(RulePack, pack_id)
     if p is None:
+        raise HTTPException(status_code=404, detail="规则包不存在")
+    if p.user_id != current.id and not current.is_superuser and "admin" not in current.role_names:
         raise HTTPException(status_code=404, detail="规则包不存在")
     return _pack_out(p)
 
@@ -351,11 +367,13 @@ def update_rule_pack(
     pack_id: uuid.UUID,
     body: dict,
     db: Session = Depends(get_db),
-    current: User = Depends(require_admin),
+    current: User = Depends(get_current_user),
 ):
     p = db.get(RulePack, pack_id)
     if p is None:
         raise HTTPException(status_code=404, detail="规则包不存在")
+    if p.user_id != current.id and not current.is_superuser and "admin" not in current.role_names:
+        raise HTTPException(status_code=403, detail="只能编辑自己创建的规则包")
     if "name" in body:
         name = (body.get("name") or "").strip()
         if not name:
@@ -384,11 +402,13 @@ def toggle_rule_pack(
     pack_id: uuid.UUID,
     body: dict,
     db: Session = Depends(get_db),
-    current: User = Depends(require_admin),
+    current: User = Depends(get_current_user),
 ):
     p = db.get(RulePack, pack_id)
     if p is None:
         raise HTTPException(status_code=404, detail="规则包不存在")
+    if p.user_id != current.id and not current.is_superuser and "admin" not in current.role_names:
+        raise HTTPException(status_code=403, detail="只能操作自己创建的规则包")
     p.enabled = bool(body.get("enabled", not p.enabled))
     db.commit()
     db.refresh(p)
@@ -400,11 +420,13 @@ def toggle_rule_pack(
 def delete_rule_pack(
     pack_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current: User = Depends(require_admin),
+    current: User = Depends(get_current_user),
 ):
     p = db.get(RulePack, pack_id)
     if p is None:
         raise HTTPException(status_code=404, detail="规则包不存在")
+    if p.user_id != current.id and not current.is_superuser and "admin" not in current.role_names:
+        raise HTTPException(status_code=403, detail="只能删除自己创建的规则包")
     db.delete(p)
     db.commit()
     invalidate_pack_caches()

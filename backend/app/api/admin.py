@@ -81,6 +81,16 @@ def update_user(
 
     if body.password:
         user.password_hash = hash_password(body.password)
+        # 改密即吊销该用户所有已签发 refresh token，防止旧会话继续换新令牌
+        from datetime import datetime, timezone
+
+        from app.models.user import AuthSession
+
+        db.execute(
+            AuthSession.__table__.update()
+            .where(AuthSession.user_id == user.id, AuthSession.revoked_at.is_(None))
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
         changes["password"] = "reset"
 
     if changes:
