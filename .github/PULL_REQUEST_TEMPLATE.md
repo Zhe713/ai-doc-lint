@@ -1,17 +1,21 @@
 ## 改动说明
 
-（这段 PR 改了什么？为什么改？）
+（这段 PR 改了什么？为什么改？解决了什么问题？）
 
-## 改动内容
+## 改动类型
 
-- [ ] 功能 / 修复说明
-- [ ] 是否新增测试（后端 pytest 用例）
-- [ ] 是否更新 README 对应小节
+- [ ] 新功能（feat）
+- [ ] 修复（fix）
+- [ ] 文档（docs）
+- [ ] 测试（test）
+- [ ] 杂项（chore）
 
-## 测试结果
+## 测试与验证
 
-- [ ] `scripts-dev\run_tests.ps1` 全绿（当前基线 164 用例）
-- [ ] `cd frontend && npm run build` 通过
+- [ ] 后端测试全绿（`docker compose exec backend-api pytest`，当前 179 用例）
+- [ ] 前端类型检查 + 构建通过（`cd frontend && npm run build`）
+- [ ] 涉及前端改动时已重建镜像验证
+- [ ] 新增能力已配套测试；涉及对外行为已更新 README / CHANGELOG
 
 ## 关联 issue
 

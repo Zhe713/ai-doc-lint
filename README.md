@@ -49,9 +49,9 @@ ai-doc-lint 是一个**自托管**的 AI 文档校验工具，把重复、枯燥
 | --- | --- |
 | ![首页看板](docs/screenshots/home.png) | ![校验报告](docs/screenshots/report.png) |
 
-| 交叉比对 |
-| --- |
-| ![交叉比对](docs/screenshots/compare.png) |
+| 规则管理 | 交叉比对 |
+| --- | --- |
+| ![规则管理](docs/screenshots/rules.png) | ![交叉比对](docs/screenshots/compare.png) |
 
 ## 快速开始
 

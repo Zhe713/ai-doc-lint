@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#0891B2"/>
+    </linearGradient>
+    <linearGradient id="check" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E0F2FE"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角方形底 -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
+
+  <!-- 文档纸张 -->
+  <path d="M152 128 C152 110 166 96 184 96 H280 L360 176 V368 C360 386 346 400 328 400 H184 C166 400 152 386 152 368 Z"
+        fill="#FFFFFF" fill-opacity="0.96"/>
+  <!-- 折角 -->
+  <path d="M280 96 L360 176 H296 C287 176 280 168 280 159 Z" fill="#BFDBFE"/>
+
+  <!-- 文档上的文字行 -->
+  <rect x="184" y="216" width="128" height="16" rx="8" fill="#94A3B8"/>
+  <rect x="184" y="248" width="112" height="16" rx="8" fill="#CBD5E1"/>
+  <rect x="184" y="280" width="120" height="16" rx="8" fill="#CBD5E1"/>
+  <rect x="184" y="312" width="88" height="16" rx="8" fill="#CBD5E1"/>
+
+  <!-- 校验对勾（叠加在文档右下） -->
+  <circle cx="336" cy="336" r="72" fill="url(#check)" fill-opacity="0"/>
+  <circle cx="336" cy="336" r="66" fill="#10B981" stroke="#FFFFFF" stroke-width="8"/>
+  <path d="M300 336 L324 360 L372 304" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
