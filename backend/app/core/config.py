@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     stalled_timeout_seconds: int = Field(default=300, alias="STALLED_TIMEOUT_SECONDS")
     max_upload_mb: int = Field(default=200, alias="MAX_UPLOAD_MB")
 
+    # —— 告警阈值（W9-2）：可经环境变量覆盖 ——
+    alert_queue_depth_threshold: int = Field(default=50, alias="ALERT_QUEUE_DEPTH_THRESHOLD")
+    alert_parse_failure_rate: float = Field(default=0.3, alias="ALERT_PARSE_FAILURE_RATE")
+
     # —— 混合检索（P2）：向量 + BM25 + 本地 reranker ——
     hybrid_rerank_enabled: bool = Field(default=True, alias="HYBRID_RERANK_ENABLED")
     hybrid_vector_topk: int = Field(default=20, alias="HYBRID_VECTOR_TOPK")

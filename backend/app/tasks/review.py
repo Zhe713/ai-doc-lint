@@ -64,6 +64,17 @@ def run_review(self, task_id_str: str):
             except Exception:  # noqa: BLE001
                 db.rollback()
             raise
+        # 重试前把任务状态回退为 PENDING，否则下次尝试会被开头的
+        # 「非 PENDING 直接 return」守卫短路，任务永久卡在 RUNNING。
+        try:
+            db.execute(
+                DocumentTask.__table__.update()
+                .where(DocumentTask.id == uuid.UUID(task_id_str))
+                .values(status=STATUS_PENDING, celery_task_id=None)
+            )
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
         raise self.retry(exc=exc, countdown=5)
     finally:
         db.close()

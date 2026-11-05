@@ -41,6 +41,40 @@ def enqueue_parse(task_id: uuid.UUID, celery_task_id: str | None = None) -> None
     run_parse.apply_async(args=[str(task_id)], queue=QUEUE_PARSE, task_id=celery_task_id)
 
 
+def requeue_by_type(task_id: uuid.UUID) -> None:
+    """按任务类型把卡死的任务重新投递到各自队列，而不是一刀切丢进 parse。
+
+    各类型的入队函数分散在各自模块，这里惰性导入避免循环依赖。
+    """
+    db = SessionLocal()
+    try:
+        task = db.get(DocumentTask, task_id)
+        if task is None:
+            return
+        ttype = task.task_type or "parse"
+    finally:
+        db.close()
+
+    if ttype == "review":
+        from app.tasks.review import enqueue_review
+
+        enqueue_review(task_id)
+    elif ttype == "annotate":
+        from app.tasks.annotate import enqueue_annotate
+
+        enqueue_annotate(task_id)
+    elif ttype == "embed":
+        from app.tasks.embed import enqueue_embed
+
+        enqueue_embed(task_id)
+    elif ttype == "cross_compare":
+        from app.tasks.cross_compare import enqueue_cross_compare
+
+        enqueue_cross_compare(task_id)
+    else:  # parse 及其它默认回 parse
+        enqueue_parse(task_id)
+
+
 @celery_app.task(name="app.tasks.reaper.reap_stalled", ignore_result=True)
 def reap_stalled() -> dict:
     db = SessionLocal()
@@ -57,7 +91,7 @@ def reap_stalled() -> dict:
                     .values(status=STATUS_PENDING, celery_task_id=None)
                 )
                 requeued += 1
-                enqueue_parse(task.id)
+                requeue_by_type(task.id)
         db.commit()
         if requeued:
             log.warning("reaper requeued %d stalled task(s)", requeued)
@@ -81,7 +115,7 @@ def _reconcile() -> int:
                 .where(DocumentTask.id == task.id)
                 .values(status=STATUS_PENDING, celery_task_id=None)
             )
-            enqueue_parse(task.id)
+            requeue_by_type(task.id)
         db.commit()
         if rows:
             log.info("startup reconcile re-enqueued %d task(s)", len(rows))

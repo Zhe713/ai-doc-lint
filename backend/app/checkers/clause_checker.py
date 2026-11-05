@@ -179,7 +179,7 @@ class ClauseChecker:
                                               (result.get("reason") or "").strip())
 
     def _apply_uncertain_missing(self, clause: dict, quote: str, reason: str) -> None:
-        severity = clause["severity"]
+        severity = clause.get("severity") or "warning"
         location = None
         if quote:
             matched, location = self._match_quote(quote)
@@ -221,7 +221,7 @@ class ClauseChecker:
                 reason = (result.get("reason") or "").strip()
                 self.collector.add(
                     checker=self.checker, rule_id=clause["id"],
-                    severity=clause["severity"],
+                    severity=clause.get("severity") or "warning",
                     message=f"缺少必要条款：{clause['name']}",
                     suggestion=f"请补充「{clause['name']}」相关约定",
                     location=None,

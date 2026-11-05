@@ -144,6 +144,29 @@ def run_embed(self, task_id_str: str):
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         logger.exception("embed task %s failed: %s", task_id_str, exc)
+        if self.request.retries >= self.max_retries:
+            try:
+                failed_task = db.get(DocumentTask, uuid.UUID(task_id_str))
+                if failed_task is not None and failed_task.status == task_state.STATUS_RUNNING:
+                    task_state.change_status(
+                        db, failed_task, STATUS_FAILED,
+                        event_type="task_failed", stage="error",
+                        message=str(exc)[:500],
+                        fields={"error_message": str(exc)[:500]},
+                    )
+            except Exception:  # noqa: BLE001
+                db.rollback()
+            raise
+        # 重试前回退为 PENDING，避免下次尝试被守卫短路、永久卡 RUNNING
+        try:
+            db.execute(
+                DocumentTask.__table__.update()
+                .where(DocumentTask.id == uuid.UUID(task_id_str))
+                .values(status=STATUS_PENDING, celery_task_id=None)
+            )
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
         raise self.retry(exc=exc, countdown=5)
     finally:
         db.close()
