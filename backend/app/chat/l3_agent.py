@@ -104,8 +104,12 @@ def run_l3(db, document_id, history: list[dict], user_text: str):
     """生成器：yield ("delta", text)... 最后 ("end", meta)。"""
     client, model = build_client()
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    # history 已含本轮刚提交的 user 消息（caller 在 post_message 里先落库再取史），
+    # 这里不再重复 append user_text，避免用户最新一句在上下文里出现两次。
     messages.extend(history[-8:])
-    messages.append({"role": "user", "content": user_text})
+    if not messages or messages[-1].get("role") != "user":
+        # 兜底：历史里没有 user 消息（异常路径），补上本轮文本
+        messages.append({"role": "user", "content": user_text})
 
     first = client.chat.completions.create(
         model=model, messages=messages,

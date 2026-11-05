@@ -67,7 +67,7 @@ def _range_text(value, unit: str) -> str:
     return f"{value} {unit}"
 
 
-def _item(title: str, detail: str, *, severity=None, basis=BASIS_RULE) -> dict:
+def _item(title: str, detail: str, *, severity=None, basis=BASIS_RULE, rule_id: str | None = None) -> dict:
     return {
         "title": title,
         "detail": detail,
@@ -75,6 +75,7 @@ def _item(title: str, detail: str, *, severity=None, basis=BASIS_RULE) -> dict:
         "severity_label": SEVERITY_LABELS.get(severity or "", "提示"),
         "basis": basis,
         "basis_label": BASIS_LABELS.get(basis, basis),
+        "rule_id": rule_id,
     }
 
 
@@ -89,7 +90,7 @@ def _explain_format(content: dict) -> list[dict]:
         detail = f"文档应为 {_paper_name(size['expected_mm'])}"
         if tol:
             detail += f"，实际尺寸相差 {tol} 毫米以内都算合格（扫描件常见轻微偏差）"
-        items.append(_item("纸张尺寸", detail + "。", severity=sev))
+        items.append(_item("纸张尺寸", detail + "。", severity=sev, rule_id="format.page.size"))
 
     margin = _get(content, "page.margin_cm", {}) or {}
     sides = [(k, margin.get(k)) for k in ("top", "bottom", "left", "right")]
@@ -98,21 +99,21 @@ def _explain_format(content: dict) -> list[dict]:
         parts = [f"{label[k]} {_range_text(v, '厘米')}" for k, v in sides if v]
         items.append(_item(
             "页边距", "正文与纸张边缘的距离应在：" + "、".join(parts) + "。",
-            severity=margin.get("severity"),
+            severity=margin.get("severity"), rule_id="format.page.margin",
         ))
 
     font = _get(content, "font", {}) or {}
     if font.get("body_allow"):
         items.append(_item(
             "正文字体", "只允许使用：" + "、".join(font["body_allow"]) + "。用了清单外的字体会提示。",
-            severity=font.get("severity"),
+            severity=font.get("severity"), rule_id="format.font.body",
         ))
     if font.get("body_size_pt"):
         items.append(_item(
             "正文字号",
             f"正文字号应在 {_range_text(font['body_size_pt'], '磅(pt)')} 之间"
             "（小四 12pt、四号 14pt、三号 16pt）。",
-            severity=font.get("severity"),
+            severity=font.get("severity"), rule_id="format.font.size",
         ))
 
     para = _get(content, "paragraph", {}) or {}
@@ -125,14 +126,14 @@ def _explain_format(content: dict) -> list[dict]:
             extra += f"不足 {para['min_chars']} 字的短段落（标题、一句话）不检查。"
         items.append(_item(
             "首行缩进", f"每个自然段开头空 {indent} 个字符。{extra}",
-            severity=para.get("severity"),
+            severity=para.get("severity"), rule_id="format.paragraph.indent",
         ))
 
     heading = _get(content, "heading", {}) or {}
     if heading.get("enabled"):
         items.append(_item(
             "标题层级", "检查标题编号有没有跳级（例如从「一、」直接跳到「1.」），跳级会提示。",
-            severity=heading.get("severity"),
+            severity=heading.get("severity"), rule_id="format.heading.sequence",
         ))
     return items
 
@@ -143,13 +144,14 @@ def _explain_clause(content: dict) -> list[dict]:
     items: list[dict] = []
     for clause in content.get("clauses") or []:
         name = clause.get("name") or clause.get("id") or "未命名条款"
+        rule_id = clause.get("id")
         strong = clause.get("strong") or []
         weak = clause.get("weak") or []
         required = clause.get("required", True)
         if not required:
             items.append(_item(
                 name, "可选条款：缺失不会提示，只在原文出现时做一致性参考。",
-                severity=clause.get("severity"), basis=BASIS_RULE,
+                severity=clause.get("severity"), basis=BASIS_RULE, rule_id=rule_id,
             ))
             continue
         parts = [f"合同必须包含「{name}」条款。"]
@@ -166,6 +168,7 @@ def _explain_clause(content: dict) -> list[dict]:
             name, "".join(parts),
             severity=clause.get("severity"),
             basis=BASIS_HYBRID if weak else BASIS_LLM,
+            rule_id=rule_id,
         ))
     return items
 
@@ -180,6 +183,7 @@ def _explain_field(content: dict) -> list[dict]:
     }
     for field in content.get("fields") or []:
         label = field.get("label") or field.get("key") or "未命名字段"
+        rule_id = field.get("key")
         ftype = type_labels.get(field.get("type") or "", field.get("type") or "文字")
         patterns = field.get("patterns") or []
         detail = f"从原文中自动提取「{label}」（{ftype}型）。"
@@ -187,7 +191,7 @@ def _explain_field(content: dict) -> list[dict]:
             detail += "识别的写法包括：" + "、".join(f"「{p}」" for p in patterns[:6]) + "。"
         detail += ("先用规则正则直接抓取，零 token；抓不到时（如开启交叉比对）"
                    "由大模型补抽，并把来源原文回填以便核对。")
-        items.append(_item(label, detail, basis=BASIS_RULE))
+        items.append(_item(label, detail, basis=BASIS_RULE, rule_id=rule_id))
     return items
 
 
@@ -197,6 +201,7 @@ def _explain_cross(content: dict) -> list[dict]:
     items: list[dict] = []
     for check in content.get("checks") or []:
         name = check.get("name") or check.get("id") or "未命名勾稽"
+        rule_id = check.get("id")
         fields = check.get("fields") or []
         detail = "核对 " + " 与 ".join(f"「{f}」" for f in fields) if fields else "核对关联字段"
         detail += " 是否一致。"
@@ -204,7 +209,7 @@ def _explain_cross(content: dict) -> list[dict]:
         if desc:
             detail += desc.rstrip("。") + "。"
         detail += "属于确定性计算，不调用大模型。"
-        items.append(_item(name, detail, severity=check.get("severity"), basis=BASIS_RULE))
+        items.append(_item(name, detail, severity=check.get("severity"), basis=BASIS_RULE, rule_id=rule_id))
     return items
 
 

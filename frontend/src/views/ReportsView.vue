@@ -59,6 +59,9 @@
     <el-alert v-if="coverage?.review_pending" type="info" :closable="false" show-icon
       title="审查仍在进行中，当前结果可能不完整"
       description="页面会自动刷新；在结果稳定前请不要据此下结论。" style="margin-bottom: 12px" />
+    <el-alert v-if="coverage?.review_failed" type="error" :closable="false" show-icon
+      title="本次审查执行失败，结论不可用"
+      description="检查任务未能正常完成，请重新上传文档或稍后重试；下方若有结果也不代表完整审查。" style="margin-bottom: 12px" />
 
     <!-- ① 总览看板 -->
     <div class="overview">
@@ -304,15 +307,15 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
-  Coverage,
-  DocumentField,
-  Finding,
-  FindingSource,
+  type Coverage,
+  type DocumentField,
+  type Finding,
+  type FindingSource,
   FEEDBACK_CAUSE_OPTIONS,
-  FeedbackCause,
+  type FeedbackCause,
   SOURCE_LABELS,
   SOURCE_TAG_TYPE,
-  TagType,
+  type TagType,
   isAiAssisted,
   listFields,
   listFindings,
@@ -669,8 +672,14 @@ function scrollBottom() {
 async function openAssistant() {
   assistantOpen.value = true
   if (chatSessionId) return
-  const session = await createChatSession(docId)
-  chatSessionId = session.id
+  try {
+    const session = await createChatSession(docId)
+    chatSessionId = session.id
+  } catch {
+    ElMessage.error('创建会话失败，请稍后重试')
+    assistantOpen.value = false
+    return
+  }
   const greeting = '你好，我是这份文档的校验助手。可以问我：有哪些问题、这条什么意思、怎么改、原文在哪里。'
   chatMessages.value = [{
     localKey: localSeq++, role: 'assistant', content: greeting,

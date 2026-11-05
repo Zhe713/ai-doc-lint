@@ -358,7 +358,11 @@ async function decide(action: 'retry_ocr' | 'continue_with_warnings' | 'cancel')
 }
 
 async function onCancel(row: TaskItem) {
-  await ElMessageBox.confirm(`确定取消「${row.filename}」的解析任务？`, '取消任务', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm(`确定取消「${row.filename}」的解析任务？`, '取消任务', { type: 'warning' })
+  } catch {
+    return
+  }
   await cancelTask(row.id)
   ElMessage.success('已取消')
   if (currentGroupId.value) refreshGroup(currentGroupId.value)

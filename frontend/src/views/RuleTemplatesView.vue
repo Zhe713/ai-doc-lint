@@ -29,6 +29,15 @@
               >
                 <div class="pack-name">{{ b.name }}</div>
                 <el-tag size="small">{{ packTypeLabel(b.pack_type) }}</el-tag>
+                <el-button
+                  size="small"
+                  link
+                  type="primary"
+                  style="margin-left: auto"
+                  @click.stop="onCopyBuiltin(b)"
+                >
+                  复制为自定义
+                </el-button>
               </div>
               <div class="sub-title" style="margin-top: 14px">
                 我创建的规则（{{ packs.length }}）
@@ -80,6 +89,16 @@
                       <el-tag size="small" :type="BASIS_TAG_TYPE[it.basis]" effect="plain">
                         {{ BASIS_LABELS[it.basis] }}
                       </el-tag>
+                      <el-button
+                        v-if="it.rule_id && selected?.kind === 'builtin' && selected.pack_type"
+                        size="small"
+                        link
+                        type="danger"
+                        style="margin-left: auto"
+                        @click="onDisableRule(selected.pack_type, it.rule_id, it.title)"
+                      >
+                        停用
+                      </el-button>
                     </div>
                     <div class="explain-detail">{{ it.detail }}</div>
                   </div>
@@ -453,6 +472,7 @@ import {
   type SchemaField,
   createRulePack,
   deleteRulePack,
+  disableRule,
   enableRule,
   explainBuiltinPack,
   explainRulePack,
@@ -906,6 +926,21 @@ async function onEnableRule(row: DisabledRuleItem) {
   await load()
 }
 
+async function onDisableRule(packType: PackType, ruleId: string, title: string) {
+  try {
+    await ElMessageBox.confirm(
+      `停用「${title}」这条规则？停用后它不再参与检查，报告页会注明「已停用规则」，不会伪装成「查过没问题」。`,
+      '停用规则',
+      { type: 'warning', confirmButtonText: '停用', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  await disableRule({ pack_type: packType, rule_id: ruleId })
+  ElMessage.success('已停用该规则')
+  await load()
+}
+
 function onUpload() {
   if (!form.value.name.trim()) {
     ElMessage.warning('请填写规则包名称')
@@ -971,7 +1006,11 @@ async function onToggle(row: RulePack) {
 }
 
 async function onDelete(row: RulePack) {
-  await ElMessageBox.confirm(`确认删除规则包「${row.name}」？`, '提示', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm(`确认删除规则包「${row.name}」？`, '提示', { type: 'warning' })
+  } catch {
+    return
+  }
   await deleteRulePack(row.id)
   ElMessage.success('已删除')
   load()

@@ -73,8 +73,8 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
-import { createChatSession, getChatSession, streamChat } from '@/api/chat'
-import { DocItem, listDocuments } from '@/api/findings'
+import { createChatSession, streamChat } from '@/api/chat'
+import { type DocItem, listDocuments } from '@/api/findings'
 
 interface UIMessage {
   localKey: number
@@ -101,7 +101,7 @@ const statusLabel = (s: string): string =>
   ({ parsed: '已解析', failed: '解析失败', pending: '排队中', running: '解析中', awaiting: '待确认' })[s] ?? s
 
 const layerLabel = (l: string): string =>
-  ({ l1: '规则直答', l2: '结合上下文', l3: '智能检索' })[l] ?? l
+  ({ l1_rule: '规则直答', l2_context: '结合上下文', l3_agent: '智能检索' })[l] ?? l
 
 async function loadDocs() {
   docsLoading.value = true
@@ -180,7 +180,8 @@ async function ensureSession() {
     chatSessionId = session.id
     pushMessage('assistant', '你好，我是这份文档的校验助手。可以问我：有哪些问题、这条什么意思、怎么改、原文在哪里。')
   } catch {
-    ElMessage.error('创建会话失败')
+    ElMessage.error('创建会话失败，请稍后重试')
+    chatSessionId = ''
   }
 }
 
@@ -192,6 +193,10 @@ async function resetSession() {
 
 async function fire(content: string, buttonIntent?: string) {
   if (!content.trim()) return
+  if (!chatSessionId) {
+    ElMessage.error('会话尚未就绪，请稍后重试')
+    return
+  }
   chatSending.value = true
   pushMessage('user', content)
   const reply = pushMessage('assistant', '', true)

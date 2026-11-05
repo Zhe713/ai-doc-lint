@@ -77,7 +77,11 @@ const auth = useAuthStore()
 
 async function onCommand(command: string) {
   if (command === 'logout') {
-    await ElMessageBox.confirm('确定退出登录吗？', '提示', { type: 'warning' })
+    try {
+      await ElMessageBox.confirm('确定退出登录吗？', '提示', { type: 'warning' })
+    } catch {
+      return
+    }
     await auth.logout()
     router.push('/login')
   }

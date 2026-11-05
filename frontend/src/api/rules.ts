@@ -95,6 +95,7 @@ export interface ExplainedRule {
   severity_label: string
   basis: RuleBasis
   basis_label: string
+  rule_id: string | null
 }
 
 export interface ExplainResult {

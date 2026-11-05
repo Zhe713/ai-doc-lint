@@ -163,4 +163,27 @@ def search_in_document(db: Session, document_id, *, query: str) -> dict:
                 "context": text[max(0, idx - WINDOW):idx + len(norm_query) + WINDOW],
             })
 
+    # 4) 语义检索兜底：关键词没精确命中时，用混合检索（向量+BM25+reranker）
+    #    在「当前文档」内召回语义相近的片段，支撑开放式提问（如“违约责任怎么约”）。
+    if not matches:
+        try:
+            from app.services.search import search_chunks
+            from app.models.document import Document
+
+            doc = db.get(Document, document_id)
+            if doc is not None:
+                hits = search_chunks(db, doc.user_id, query, limit=MAX_HITS)
+                for h in hits:
+                    if str(h.get("document_id")) != str(document_id):
+                        continue
+                    matches.append({
+                        "position": h.get("chunk_index"),
+                        "context": h.get("content", "")[:TEXT_CHUNK],
+                    })
+                if matches:
+                    return {"found": True, "query": query,
+                            "matches": matches, "semantic": True}
+        except Exception:  # noqa: BLE001  向量/reranker 不可用时静默降级，保持原行为
+            pass
+
     return {"found": bool(matches), "query": query, "matches": matches}

@@ -268,7 +268,11 @@ async function pollUntilDone() {
 
 async function removeGroup() {
   if (!currentId.value) return
-  await ElMessageBox.confirm('删除比对组？关联的比对结果会一并清除', '提示', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm('删除比对组？关联的比对结果会一并清除', '提示', { type: 'warning' })
+  } catch {
+    return
+  }
   await deleteCompareGroup(currentId.value)
   currentId.value = null
   detail.value = null

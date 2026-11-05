@@ -131,11 +131,15 @@ async function onRelease() {
   if (!result.value || !docA.value || !docB.value) return
   const kind = result.value.identical ? 'diff_auto' : 'manual'
   if (kind === 'manual') {
-    await ElMessageBox.confirm(
-      '两版存在差异，手动放行意味着你确认这些差异可接受、无需重新审查。继续？',
-      '确认手动放行',
-      { type: 'warning', confirmButtonText: '确认放行', cancelButtonText: '取消' }
-    )
+    try {
+      await ElMessageBox.confirm(
+        '两版存在差异，手动放行意味着你确认这些差异可接受、无需重新审查。继续？',
+        '确认手动放行',
+        { type: 'warning', confirmButtonText: '确认放行', cancelButtonText: '取消' }
+      )
+    } catch {
+      return
+    }
   }
   releasing.value = true
   try {
@@ -149,8 +153,12 @@ async function onRelease() {
 
 async function onRevoke() {
   if (!docB.value) return
-  await ElMessageBox.confirm('撤销后，该版本会重新回到"未放行"状态。继续？', '撤销放行',
-    { type: 'warning' })
+  try {
+    await ElMessageBox.confirm('撤销后，该版本会重新回到"未放行"状态。继续？', '撤销放行',
+      { type: 'warning' })
+  } catch {
+    return
+  }
   const res = await revokeRelease(docB.value)
   result.value = result.value ? { ...result.value, released_at: null } : null
   ElMessage.success(`已撤销 ${res.revoked} 条放行记录`)
