@@ -37,7 +37,17 @@ def dashboard_stats(
         ).scalar_one()
         for sev in ("error", "warning", "info")
     }
-    rule_packs = len(list(RULES_DIR.glob("*.yaml")))
+    # 内置规则包已 JSON 数据化（P2-3），兼容历史 YAML 包，两者都要计入
+    rule_packs = len(list(RULES_DIR.glob("*.json"))) + len(list(RULES_DIR.glob("*.yaml")))
+    # 规则命中 vs 大模型参与（报告页/AI 能力卡展示的依据）
+    by_source = {
+        src: db.execute(
+            select(func.count(CheckFinding.id)).where(
+                CheckFinding.user_id == current.id,
+                CheckFinding.source == src)
+        ).scalar_one()
+        for src in ("rule", "hybrid", "llm")
+    }
     chunks = db.execute(
         select(func.count(DocumentChunk.id)).join(
             Document, Document.id == DocumentChunk.document_id
@@ -62,6 +72,7 @@ def dashboard_stats(
         "groups": groups,
         "findings_total": findings_total,
         "findings_by_severity": by_severity,
+        "findings_by_source": by_source,
         "rule_packs": rule_packs,
         "chunks": chunks,
         "embedded_docs": embedded_docs,

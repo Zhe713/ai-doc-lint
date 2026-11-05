@@ -1,5 +1,7 @@
 import client from './client'
 
+export type FindingSource = 'rule' | 'llm' | 'hybrid'
+
 export interface Finding {
   id: number
   document_id: string
@@ -13,7 +15,33 @@ export interface Finding {
   status: string
   feedback_reason: string | null
   feedback_cause: string | null
+  /** 问题来源：rule=纯规则命中，hybrid=规则初筛+大模型复核，llm=大模型语义判定 */
+  source?: FindingSource
+  /** 大模型给出该结论的理由（source=hybrid/llm 时有值） */
+  llm_reason?: string | null
+  /** 实际参与判定的模型名 */
+  llm_model?: string | null
   created_at: string
+}
+
+export const SOURCE_LABELS: Record<FindingSource, string> = {
+  rule: '规则命中',
+  hybrid: '规则 + AI 复核',
+  llm: 'AI 判定'
+}
+
+/** Element Plus 标签配色联合类型（原先用 string 导致所有 :type 绑定都无法类型检查） */
+export type TagType = 'primary' | 'success' | 'warning' | 'info' | 'danger'
+
+export const SOURCE_TAG_TYPE: Record<FindingSource, TagType> = {
+  rule: 'info',
+  hybrid: 'warning',
+  llm: 'success'
+}
+
+/** 「是不是 AI 参与判定的」——报告页用它做过滤与统计 */
+export function isAiAssisted(f: Finding): boolean {
+  return f.source === 'hybrid' || f.source === 'llm'
 }
 
 export interface DocItem {
@@ -31,17 +59,44 @@ export async function listDocuments(limit = 100): Promise<DocItem[]> {
   return data
 }
 
-export interface DocFlags {
-  continued_with_warning: boolean
+export interface SkippedCheck {
+  checker: string
+  label: string
+  rules: string[]
+  whole_check: boolean
+}
+
+export interface ReleaseInfo {
+  id: string
+  kind: string
+  label: string
+  baseline_document_id: string | null
+  changed_ratio: number | null
+  note: string | null
+  created_at: string | null
+}
+
+/** 审查覆盖率：后端 CoverageOut 的镜像，接口只返回这一份口径 */
+export interface Coverage {
+  checks_requested: string[]
+  checks_executed: string[]
+  checks_skipped: SkippedCheck[]
+  /** 被「规则停用」抑制的规则（不是没查出，是被关掉了） */
+  suppressed_rules: string[]
   checker_degraded: boolean
-  checker_warning_detail: unknown[]
+  checker_warning_detail: string[]
+  review_pending: boolean
+  review_failed: boolean
+  continued_with_warning: boolean
+  complete: boolean
+  released: ReleaseInfo | null
 }
 
 export interface FindingsResult {
   document_id: string
   total: number
   items: Finding[]
-  doc_flags?: DocFlags
+  coverage?: Coverage
 }
 
 export async function listFindings(
@@ -51,6 +106,32 @@ export async function listFindings(
   const { data } = await client.get(`/documents/${docId}/findings`, {
     params: filters
   })
+  return data
+}
+
+/** 单独取覆盖率（批量矩阵等页面不必拉全量 findings） */
+export async function getCoverage(docId: string): Promise<Coverage> {
+  const { data } = await client.get(`/documents/${docId}/coverage`)
+  return data
+}
+
+/** 自动抽取的字段（金额/日期/当事人等），以前只在比对矩阵里露脸 */
+export interface DocumentField {
+  id: number
+  document_id: string
+  field_key: string
+  field_label: string
+  value_type: string | null
+  value_text: string | null
+  value_number: number | null
+  value_date: string | null
+  confidence: number | null
+  source: string
+  location: Record<string, unknown> | null
+}
+
+export async function listFields(docId: string): Promise<DocumentField[]> {
+  const { data } = await client.get(`/documents/${docId}/fields`)
   return data
 }
 
@@ -133,7 +214,10 @@ export async function getLearningSuggestions(status = 'pending'): Promise<Sugges
   return data.items
 }
 
-export async function decideSuggestion(id: number, action: 'confirm' | 'reject'): Promise<{ ok: boolean; disabled_pack: string | null }> {
+export async function decideSuggestion(
+  id: number,
+  action: 'confirm' | 'reject'
+): Promise<{ ok: boolean; disabled_rule?: { pack_type: string; rule_id: string; scope: string } }> {
   const { data } = await client.post(`/admin/learning/suggestions/${id}/decision`, { action })
   return data
 }

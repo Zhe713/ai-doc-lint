@@ -137,8 +137,8 @@
             </el-table-column>
             <el-table-column label="状态" width="130">
               <template #default="{ row }">
-                <el-tag :type="statusType(row)" size="small">
-                  {{ statusLabel(row) }}
+                <el-tag :type="statusType(row as TaskItem)" size="small">
+                  {{ statusLabel(row as TaskItem) }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -152,19 +152,19 @@
                   {{ gateLabel(row.gate_reason) }}
                 </span>
                 <span v-else-if="row.error_message" class="err-text">{{ row.error_message }}</span>
-                <span v-else class="muted">{{ lastStage(row) }}</span>
+                <span v-else class="muted">{{ lastStage(row as TaskItem) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="200" align="right">
               <template #default="{ row }">
                 <el-button v-if="row.status === 'awaiting_decision'" size="small" type="danger"
-                  @click="openGate(row)">去决策</el-button>
+                  @click="openGate(row as TaskItem)">去决策</el-button>
                 <el-button v-if="row.status === 'parsed'" size="small" type="primary"
                   :title="`查看「${row.filename}」的报告`"
-                  @click="openReport(row)">查看报告</el-button>
-                <el-button v-if="row.status === 'parsed'" size="small" @click="openPreview(row)">预览文本</el-button>
+                  @click="openReport(row as TaskItem)">查看报告</el-button>
+                <el-button v-if="row.status === 'parsed'" size="small" @click="openPreview(row as TaskItem)">预览文本</el-button>
                 <el-button v-if="['pending', 'running'].includes(row.status)" size="small"
-                  @click="onCancel(row)">取消</el-button>
+                  @click="onCancel(row as TaskItem)">取消</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -292,6 +292,12 @@ async function doUpload() {
       checks: optChecks.value
     })
     ElMessage.success(`已受理 ${res.total} 份，开始排队解析`)
+    const dups = res.duplicates ?? []
+    if (dups.length) {
+      const names = dups.slice(0, 3).map((d) => d.filename).join('、')
+      const more = dups.length > 3 ? ` 等 ${dups.length} 个` : ''
+      ElMessage.warning(`另有 ${dups.length} 份内容完全相同的文件已跳过：${names}${more}`)
+    }
     step.value = 2
     picked.value = []
     uploadRef.value?.clearFiles()
@@ -377,17 +383,21 @@ function donePercent(g: TaskGroup) {
   const settled = g.succeeded + g.failed + g.cancelled
   return Math.round((settled / Math.max(g.total, 1)) * 100)
 }
-function statusType(row: TaskItem) {
+type TagType = 'primary' | 'success' | 'warning' | 'info' | 'danger'
+
+const STATUS_TAG: Record<string, TagType> = {
+  pending: 'info',
+  running: 'warning',
+  retrying: 'warning',
+  awaiting_decision: 'danger',
+  parsed: 'success',
+  failed: 'danger',
+  cancelled: 'info'
+}
+
+function statusType(row: TaskItem): TagType {
   if (row.status === 'parsed' && hasWarningContinue(row)) return 'danger'
-  return ({
-    pending: 'info',
-    running: 'warning',
-    retrying: 'warning',
-    awaiting_decision: 'danger',
-    parsed: 'success',
-    failed: 'danger',
-    cancelled: 'info'
-  } as Record<string, string>)[row.status] || 'info'
+  return STATUS_TAG[row.status] ?? 'info'
 }
 function statusLabel(row: TaskItem) {
   if (row.status === 'parsed' && hasWarningContinue(row)) return '带警告完成'
@@ -414,8 +424,9 @@ function gateLabel(reason: string | null) {
     unsupported: '文件格式不支持'
   } as Record<string, string>)[reason || ''] || '需要人工决定'
 }
-function gateIcon(reason: string | null) {
-  return reason === 'ocr_required' ? 'picture' : 'warning'
+// el-result 只支持 success/warning/info/error 四种图标，用 error 表示需要处理的失败
+function gateIcon(reason: string | null): 'warning' | 'error' {
+  return reason === 'ocr_required' ? 'error' : 'warning'
 }
 function gateSub(row: TaskItem) {
   const p = row.gate_payload || {}

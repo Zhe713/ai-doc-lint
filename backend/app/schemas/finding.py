@@ -21,6 +21,9 @@ class FindingOut(BaseModel):
     status: str
     feedback_reason: str | None = None
     feedback_cause: str | None = None
+    source: str = "rule"
+    llm_reason: str | None = None
+    llm_model: str | None = None
     created_at: datetime
 
 

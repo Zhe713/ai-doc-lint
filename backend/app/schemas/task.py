@@ -14,10 +14,22 @@ class UploadedTaskOut(BaseModel):
     status: str
 
 
+class DuplicateItemOut(BaseModel):
+    """被 sha256 去重跳过的文件（同用户已有同内容文档）。"""
+
+    filename: str
+    document_id: str | None = None
+    task_id: str | None = None
+    created_at: str | None = None
+    reason: str = "already_uploaded"  # already_uploaded / same_batch
+
+
 class UploadOut(BaseModel):
     group_id: uuid.UUID
     total: int
     tasks: list[UploadedTaskOut]
+    # 去重跳过的文件；全部重复时接口返回 409，不会走到这里
+    duplicates: list[DuplicateItemOut] = []
 
 
 class TaskGroupOut(BaseModel):

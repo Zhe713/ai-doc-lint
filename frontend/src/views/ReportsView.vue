@@ -5,18 +5,60 @@
       <h3 class="title">校验报告<span v-if="docName" class="doc-name">：{{ docName }}</span></h3>
       <el-button type="primary" plain @click="openAssistant">AI 助手</el-button>
       <el-button type="primary" plain :loading="annotating" @click="onAnnotate">
-        生成批注版（Word）
+        生成批注版
       </el-button>
       <el-button plain :disabled="!docId" @click="downloadPdf">意见书 PDF</el-button>
       <el-button plain :disabled="!docId" @click="downloadXlsx">Excel 明细</el-button>
     </div>
 
-    <el-alert v-if="docFlags?.continued_with_warning" type="error" :closable="false" show-icon
+    <el-alert v-if="coverage?.continued_with_warning" type="error" :closable="false" show-icon
       title="该文件经「带警告继续」完成解析，内容可能缺失或存在识别偏差"
       description="下方结果仅供辅助参考，请务必对照原文件核实后再决策。" style="margin-bottom: 12px" />
-    <el-alert v-if="docFlags?.checker_degraded" type="warning" :closable="false" show-icon
-      title="错别字检查当前覆盖范围有限"
-      description="专业词库未完全就绪，部分错别字可能未被检出，建议结合人工复核。" style="margin-bottom: 12px" />
+    <el-alert v-if="coverage?.checker_degraded" type="warning" :closable="false" show-icon
+      title="部分检查能力降级，检出范围有限"
+      :description="degradedText" style="margin-bottom: 12px" />
+
+    <!-- 放行状态：不是徽标，是落过库的事实 -->
+    <el-alert v-if="coverage?.released" type="success" :closable="false" show-icon
+      style="margin-bottom: 12px">
+      <template #title>
+        该版本已放行（{{ coverage.released.label }}）
+        <span class="release-meta">
+          {{ coverage.released.changed_ratio != null ? `与基线差异 ${(coverage.released.changed_ratio * 100).toFixed(1)}% · ` : '' }}
+          {{ coverage.released.created_at ? formatTime(coverage.released.created_at) : '' }}
+        </span>
+      </template>
+      <div class="release-body">
+        放行表示这一版经确认无需再改；下方问题清单仍保留可追溯。
+        <el-button link type="danger" @click="onRevokeRelease">撤销放行</el-button>
+      </div>
+    </el-alert>
+
+    <!-- 未执行的检查必须显式告知：否则「没检查」会被误读成「检查了没问题」 -->
+    <el-alert v-if="wholeSkipped.length" type="warning" :closable="false" show-icon
+      title="有整类检查未执行，本报告不是完整的审查结论" style="margin-bottom: 12px">
+      <div class="skipped-line">
+        未执行：<b>{{ wholeSkipped.map((s) => s.label).join('、') }}</b>
+      </div>
+      <div class="skipped-hint">
+        常见原因：该文档类型没有对应的规则包。请改用匹配的文档类型重新上传，
+        或只把这份报告当作「已执行那几项」的结论。
+      </div>
+    </el-alert>
+    <div v-if="partialSkipped.length" class="skipped-minor">
+      另有 {{ partialSkippedTotal }} 条单项规则因格式限制未执行（{{ partialSkipped.map((s) => s.label).join('、') }}），
+      属已知能力边界。
+    </div>
+
+    <!-- 被主动停用的规则要说出来：否则同样被误读成「查过没问题」 -->
+    <div v-if="coverage?.suppressed_rules?.length" class="skipped-minor">
+      已停用规则：<b>{{ coverage.suppressed_rules.join('、') }}</b>
+      （这些规则本次没有执行，可在「审查规则」页恢复）
+    </div>
+
+    <el-alert v-if="coverage?.review_pending" type="info" :closable="false" show-icon
+      title="审查仍在进行中，当前结果可能不完整"
+      description="页面会自动刷新；在结果稳定前请不要据此下结论。" style="margin-bottom: 12px" />
 
     <!-- ① 总览看板 -->
     <div class="overview">
@@ -46,6 +88,46 @@
       </div>
     </div>
 
+    <!-- 判定来源分布：回答「哪些是规则命中，哪些是大模型判的」 -->
+    <div class="source-bar">
+      <span class="source-bar-title">判定来源</span>
+      <span class="src-item rule">纯规则命中 <b>{{ sourceCounts.rule }}</b></span>
+      <span class="src-item hybrid">规则 + AI 复核 <b>{{ sourceCounts.hybrid }}</b></span>
+      <span class="src-item llm">AI 判定 <b>{{ sourceCounts.llm }}</b></span>
+      <span class="src-note">
+        <template v-if="aiCount">
+          本报告 {{ counts.total }} 条问题中，{{ aiCount }} 条有大模型参与判定，
+          点开每条可看到 AI 给出的依据。
+        </template>
+        <template v-else>本报告问题全部由确定性规则命中，未调用大模型。</template>
+      </span>
+    </div>
+
+    <!-- 自动抽取的关键字段：金额/日期/当事人等，审查结论要和它们对得上 -->
+    <el-card v-if="fields.length" shadow="never" class="fields-card">
+      <template #header>
+        <div class="fields-head">
+          <b>自动提取的关键信息</b>
+          <span class="fields-note">
+            共 {{ fields.length }} 项。抽取结果直接用于数值勾稽，请核对是否与合同一致。
+          </span>
+        </div>
+      </template>
+      <div class="fields-grid">
+        <div v-for="f in fields" :key="f.id" class="field-item">
+          <div class="field-label">
+            {{ f.field_label }}
+            <el-tag size="small" :type="f.source === 'llm' ? 'warning' : 'info'" effect="plain">
+              {{ f.source === 'llm' ? 'AI 提取' : '规则提取' }}
+            </el-tag>
+          </div>
+          <div class="field-value" :class="{ empty: !fieldText(f) }">
+            {{ fieldText(f) || '未识别到' }}
+          </div>
+        </div>
+      </div>
+    </el-card>
+
     <!-- 视图切换 -->
     <el-tabs v-model="view" class="sev-tabs">
       <el-tab-pane label="风险清单" name="overview" />
@@ -71,6 +153,11 @@
           <el-option label="已忽略" value="ignored" />
           <el-option label="已修复" value="fixed" />
         </el-select>
+        <el-select v-model="sourceFilter" placeholder="判定来源" clearable style="width: 160px">
+          <el-option label="纯规则命中" value="rule" />
+          <el-option label="规则 + AI 复核" value="hybrid" />
+          <el-option label="AI 判定" value="llm" />
+        </el-select>
         <el-button @click="reload">刷新</el-button>
       </div>
 
@@ -82,12 +169,28 @@
             <div class="risk-head">
               <el-tag :type="sevType[row.severity]" size="small" effect="dark">{{ sevLabel[row.severity] }}</el-tag>
               <span class="risk-checker">{{ checkerLabel[row.checker] ?? row.checker }}</span>
+              <el-tag
+                size="small"
+                effect="plain"
+                :type="SOURCE_TAG_TYPE[(row.source as FindingSource) || 'rule']"
+              >
+                {{ SOURCE_LABELS[(row.source as FindingSource) || 'rule'] }}
+              </el-tag>
               <span v-if="row.status === 'fixed'" class="risk-done">已处理</span>
               <span v-else-if="row.status === 'ignored'" class="risk-ignored">已忽略</span>
             </div>
             <div class="risk-msg">{{ row.message }}</div>
             <div v-if="row.suggestion" class="risk-sugg">建议：{{ row.suggestion }}</div>
-            <div v-if="row.location?.snippet" class="risk-snippet">原文：…{{ row.location.snippet }}…</div>
+            <!-- 错别字：整句 + 高亮被判定有误的词，用户能自己判断对错 -->
+            <div v-if="row.location?.snippet" class="risk-snippet">
+              原文：<template v-for="(part, pi) in snippetParts(row)" :key="pi"><span
+                v-if="part.hit" class="wrong-word">{{ part.text }}</span><template v-else>{{ part.text }}</template></template>
+            </div>
+            <div v-if="row.llm_reason" class="risk-ai">
+              <span class="ai-dot">AI</span>
+              <span class="ai-reason">{{ row.llm_reason }}</span>
+              <span v-if="row.llm_model" class="ai-model">{{ row.llm_model }}</span>
+            </div>
           </div>
           <div class="risk-actions">
             <el-button v-if="row.status !== 'fixed'" size="small" type="success" plain
@@ -120,6 +223,9 @@
         </template>
         <div v-for="f in g.items" :key="f.id" class="clause-item">
           <span class="clause-msg">{{ f.message }}</span>
+          <el-tag size="small" effect="plain" :type="SOURCE_TAG_TYPE[(f.source as FindingSource) || 'rule']">
+            {{ SOURCE_LABELS[(f.source as FindingSource) || 'rule'] }}
+          </el-tag>
           <el-tag v-if="f.status === 'open'" size="small" type="warning">待处理</el-tag>
           <el-tag v-else-if="f.status === 'ignored'" size="small" type="info">已忽略</el-tag>
           <el-tag v-else size="small" type="success">已处理</el-tag>
@@ -194,10 +300,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Finding, FEEDBACK_CAUSE_OPTIONS, FeedbackCause, listFindings, setFindingStatus } from '@/api/findings'
+import {
+  Coverage,
+  DocumentField,
+  Finding,
+  FindingSource,
+  FEEDBACK_CAUSE_OPTIONS,
+  FeedbackCause,
+  SOURCE_LABELS,
+  SOURCE_TAG_TYPE,
+  TagType,
+  isAiAssisted,
+  listFields,
+  listFindings,
+  setFindingStatus
+} from '@/api/findings'
+import { revokeRelease } from '@/api/diff'
 import { downloadAnnotated, requestAnnotated } from '@/api/annotate'
 import client from '@/api/client'
 import { createChatSession, streamChat } from '@/api/chat'
@@ -212,10 +333,28 @@ const findings = ref<Finding[]>([])
 const severity = ref('')
 const checker = ref('')
 const fstatus = ref('')
-const docFlags = ref<import('@/api/findings').DocFlags | null>(null)
+const sourceFilter = ref('')
+const coverage = ref<Coverage | null>(null)
+const fields = ref<DocumentField[]>([])
 const view = ref('overview')
+// 审查未完成时的自动续等（30 次 × 3s ≈ 90s 上限，避免无限轮询）
+let pendingTimer: number | undefined
+let pendingPolls = 0
 
-const sevType: Record<string, string> = { error: 'danger', warning: 'warning', info: 'info' }
+const skippedChecks = computed(() => coverage.value?.checks_skipped ?? [])
+// 整类未执行（如该文档类型没有条款规则包）才是真风险；个别规则跳过属能力边界，只做轻提示
+const wholeSkipped = computed(() => skippedChecks.value.filter((s) => s.whole_check))
+const partialSkipped = computed(() => skippedChecks.value.filter((s) => !s.whole_check))
+const partialSkippedTotal = computed(() =>
+  partialSkipped.value.reduce((n, s) => n + s.rules.length, 0)
+)
+const degradedText = computed(() => {
+  const detail = coverage.value?.checker_warning_detail ?? []
+  if (!detail.length) return '部分检查器运行在受限模式，检出范围可能不足，建议结合人工复核。'
+  return detail.join('；')
+})
+
+const sevType: Record<string, TagType> = { error: 'danger', warning: 'warning', info: 'info' }
 const sevLabel: Record<string, string> = { error: '错误', warning: '警告', info: '提示' }
 const checkerLabel: Record<string, string> = { format: '格式', typo: '错别字', clause: '条款' }
 
@@ -236,14 +375,48 @@ const progressPercent = computed(() =>
   counts.value.total ? Math.round((processedCount.value / counts.value.total) * 100) : 0
 )
 
+/** 判定来源分布：规则命中 / 规则+AI 复核 / AI 判定 */
+const sourceCounts = computed(() => {
+  const c = { rule: 0, hybrid: 0, llm: 0 }
+  findings.value.forEach((f) => {
+    const s = (f.source as FindingSource) || 'rule'
+    if (s in c) c[s] += 1
+  })
+  return c
+})
+
+/** 有大模型参与判定的条数（hybrid + llm） */
+const aiCount = computed(() => findings.value.filter(isAiAssisted).length)
+
 const filtered = computed(() =>
   findings.value.filter(
     (f) =>
       (!severity.value || f.severity === severity.value) &&
       (!checker.value || f.checker === checker.value) &&
-      (!fstatus.value || f.status === fstatus.value)
+      (!fstatus.value || f.status === fstatus.value) &&
+      (!sourceFilter.value || ((f.source as FindingSource) || 'rule') === sourceFilter.value)
   )
 )
+
+/**
+ * 把 snippet 里被判定有误的词单独切出来高亮。
+ * 错别字类 finding 的 message 形如「疑似错别字：「由其」建议改为「尤其」」，
+ * 取第一个「」里的词作为命中词，用户看整句上下文即可自己判断是否真错。
+ */
+function snippetParts(row: Finding): { text: string; hit: boolean }[] {
+  const snip = (row.location?.snippet as string | undefined) ?? ''
+  if (!snip) return []
+  const m = /「([^」]{1,8})」/.exec(row.message)
+  const wrong = m?.[1] ?? ''
+  if (!wrong) return [{ text: snip, hit: false }]
+  const idx = snip.indexOf(wrong)
+  if (idx < 0) return [{ text: snip, hit: false }]
+  return [
+    { text: snip.slice(0, idx), hit: false },
+    { text: wrong, hit: true },
+    { text: snip.slice(idx + wrong.length), hit: false }
+  ]
+}
 
 const clauseGroups = computed(() => {
   const map = new Map<string, { rule_id: string; title: string; items: Finding[]; total: number; error: number; warning: number; info: number; open: number }>()
@@ -267,14 +440,39 @@ async function reload() {
   try {
     const res = await listFindings(docId)
     findings.value = res.items
-    docFlags.value = res.doc_flags ?? null
+    coverage.value = res.coverage ?? null
     docName.value = ''
+    // 字段与问题清单分开取：字段可能为空，但空也要显示「未识别到」
+    fields.value = await listFields(docId).catch(() => [])
     if (res.items.length) {
       loadText()
+    }
+    // 审查尚未跑完：自动续等，避免用户在「0 问题」的中间态下得出错误结论
+    if (res.coverage?.review_pending && pendingPolls < 30) {
+      pendingPolls += 1
+      if (pendingTimer) window.clearTimeout(pendingTimer)
+      pendingTimer = window.setTimeout(() => reload(), 3000)
     }
   } finally {
     loading.value = false
   }
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleString('zh-CN')
+}
+
+/** 字段值展示：数字/日期/文本三套类型统一成一行可读文本 */
+function fieldText(f: DocumentField): string {
+  if (f.value_number != null) return String(f.value_number)
+  if (f.value_date) return f.value_date
+  return (f.value_text ?? '').trim()
+}
+
+async function onRevokeRelease() {
+  await revokeRelease(docId)
+  ElMessage.success('已撤销放行')
+  await reload()
 }
 
 async function change(
@@ -308,8 +506,10 @@ async function confirmFalsePositive() {
 }
 
 async function markConfirmed(row: Finding) {
+  // 语义澄清：确认有效 = 这条问题是真的（不是误报），但合同还没改，所以仍留在待处理。
+  // 之前提示「已记录，谢谢反馈」会让人以为已处置完成，这里把下一步说清楚。
   await change(row, 'open', 'confirmed')
-  ElMessage.success('已记录，谢谢反馈')
+  ElMessage.success('已确认为真实问题；改完合同后请点「标记已修复」')
 }
 
 // ---------- 原文对照 ----------
@@ -398,7 +598,7 @@ async function onAnnotate() {
       if (task.status === 'parsed') {
         await downloadAnnotated(taskId)
         ElMessage.success('批注版已生成并开始下载')
-        ElMessage.info('Word 文档：问题以批注形式标在原文；txt/pdf 文档：附完整原文可修改后重新上传')
+        ElMessage.info('与原文件同格式：PDF 高亮批注、Word 原生批注、txt/md 行内批注，原文内容不改动')
         return
       }
       if (task.status === 'failed') {
@@ -437,6 +637,9 @@ function saveBlob(blob: Blob, filename: string) {
 }
 
 onMounted(reload)
+onUnmounted(() => {
+  if (pendingTimer) window.clearTimeout(pendingTimer)
+})
 
 // ---------- AI 助手 ----------
 interface UIMessage {
@@ -468,9 +671,10 @@ async function openAssistant() {
   if (chatSessionId) return
   const session = await createChatSession(docId)
   chatSessionId = session.id
+  const greeting = '你好，我是这份文档的校验助手。可以问我：有哪些问题、这条什么意思、怎么改、原文在哪里。'
   chatMessages.value = [{
-    localKey: localSeq++, role: 'assistant',
-    content: '你好，我是这份文档的校验助手。可以问我：有哪些问题、这条什么意思、怎么改、原文在哪里。'
+    localKey: localSeq++, role: 'assistant', content: greeting,
+    display: greeting, pending: '', streaming: false
   }]
 }
 
@@ -554,10 +758,55 @@ function sendQuick(intent: string) {
 </script>
 
 <style scoped>
+.release-meta { color: #67c23a; font-size: 12px; margin-left: 8px; }
+.release-body { color: #606266; font-size: 13px; }
+.fields-card { margin: 12px 0; }
+.fields-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fields-note { color: #909399; font-size: 12px; }
+.fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.field-item {
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #fafafa;
+}
+.field-label {
+  color: #909399;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.field-value {
+  margin-top: 4px;
+  font-size: 14px;
+  color: #303133;
+  word-break: break-all;
+}
+.field-value.empty { color: #c0c4cc; }
+
 .page-header { display: flex; align-items: center; gap: 12px; }
 .title { margin: 0; }
 .doc-name { color: #909399; font-size: 14px; font-weight: 400; }
 .filters { display: flex; gap: 12px; margin-bottom: 12px; }
+
+/* 未执行检查的提示 */
+.skipped-line { font-size: 13px; margin-bottom: 4px; }
+.skipped-hint { font-size: 12px; color: #909399; line-height: 1.6; }
+.skipped-minor {
+  font-size: 12px;
+  color: #909399;
+  background: #fafafa;
+  border: 1px dashed #e4e7ed;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
 
 /* ① 总览 */
 .overview {
@@ -590,6 +839,26 @@ function sendQuick(intent: string) {
 }
 .progress-label { color: #606266; font-size: 13px; }
 
+/* 判定来源条：一眼看出哪些是大模型判的 */
+.source-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 12px 0 4px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.source-bar-title { color: #303133; font-weight: 600; }
+.src-item { padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+.src-item b { font-size: 14px; margin-left: 2px; }
+.src-item.rule { background: #e9e9eb; color: #606266; }
+.src-item.hybrid { background: #fdf6ec; color: #b88230; }
+.src-item.llm { background: #f0f9eb; color: #529b2e; }
+.src-note { color: #909399; font-size: 12px; margin-left: auto; }
+
 /* ② 风险清单（卡片逐条销项） */
 .risk-list { display: flex; flex-direction: column; gap: 10px; }
 .risk-item {
@@ -612,7 +881,33 @@ function sendQuick(intent: string) {
 .risk-ignored { color: #909399; font-size: 12px; font-weight: 600; }
 .risk-msg { font-size: 14px; color: #303133; line-height: 1.5; }
 .risk-sugg { color: #67c23a; font-size: 13px; margin-top: 4px; }
-.risk-snippet { color: #909399; font-size: 12px; margin-top: 4px; }
+.risk-snippet { color: #909399; font-size: 12px; margin-top: 4px; line-height: 1.7; }
+.wrong-word { color: #f56c6c; font-weight: 600; text-decoration: underline wavy #f56c6c; }
+
+/* AI 判定依据：让「AI 到底做了什么」可见 */
+.risk-ai {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: #f0f9eb;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #529b2e;
+}
+.ai-dot {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: #67c23a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+}
+.ai-reason { flex: 1; color: #4a7c2f; }
+.ai-model { flex: none; color: #a0c98a; font-size: 11px; }
 .risk-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
 /* ③ 条款明细 */
