@@ -16,7 +16,7 @@
           <el-button @click="reloadAll" :loading="loading">刷新</el-button>
         </div>
       </div>
-      <div v-if="tuning" style="margin-top: 10px">
+      <div v-if="tuning && summary" style="margin-top: 10px">
         <el-alert type="success" :closable="false"
           :title="`诊断完成：新增白名单词 ${summary.whitelist_added} 个（共 ${summary.whitelist_total} 个）；${(summary.whitelist_pending ?? []).length ? `拦截未验证候选词 ${summary.whitelist_pending.length} 个；` : ''}建议停用规则 ${summary.suggested_rules.length} 条`" />
       </div>
@@ -79,8 +79,8 @@
             <el-table-column label="原因" prop="reason" min-width="220" show-overflow-tooltip />
             <el-table-column label="操作" width="160">
               <template #default="{ row }">
-                <el-button size="small" type="danger" @click="decide(row, 'confirm')">确认停用</el-button>
-                <el-button size="small" @click="decide(row, 'reject')">拒绝</el-button>
+                <el-button size="small" type="danger" @click="decide(row as SuggestionItem, 'confirm')">确认停用</el-button>
+                <el-button size="small" @click="decide(row as SuggestionItem, 'reject')">拒绝</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -122,7 +122,7 @@
         </el-table-column>
         <el-table-column label="详情" min-width="320">
           <template #default="{ row }">
-            <span style="white-space: pre-wrap;">{{ fmtDetail(row) }}</span>
+            <span style="white-space: pre-wrap;">{{ fmtDetail(row as LearningLogItem) }}</span>
           </template>
         </el-table-column>
       </el-table>
@@ -138,6 +138,7 @@ import {
   FeedbackStat,
   LearningLogItem,
   SuggestionItem,
+  TagType,
   TuningSummary,
   decideSuggestion,
   getLearningFeedback,
@@ -188,7 +189,7 @@ const causeTags = computed<{ label: string; count: number }[]>(() => {
     })
 })
 
-function rateTag(rate: number): string {
+function rateTag(rate: number): TagType {
   if (rate >= 0.3) return 'danger'
   if (rate >= 0.15) return 'warning'
   return 'success'
@@ -199,25 +200,37 @@ function fmtTime(s: string | null): string {
   return s.replace('T', ' ').slice(0, 19)
 }
 
+// 日志 detail 是自由 JSON：读之前先收敛类型，别指望 TS 知道里面有什么
+function asList(v: unknown): string[] {
+  return Array.isArray(v) ? v.map((x) => String(x)) : []
+}
+function asNum(v: unknown): number {
+  return typeof v === 'number' ? v : 0
+}
+function asText(v: unknown): string {
+  return v == null ? '' : String(v)
+}
+
 function fmtDetail(row: LearningLogItem): string {
   const d = row.detail ?? {}
   if (row.action === 'whitelist_add') {
-    return `新增白名单词 ${d.added} 个（共 ${d.total} 个）：${(d.words ?? []).join('、')}；回滚方式：删除 typo_whitelist_auto.txt`
+    return `新增白名单词 ${asNum(d.added)} 个（共 ${asNum(d.total)} 个）：${asList(d.words).join('、')}；回滚方式：删除 typo_whitelist_auto.txt`
   }
   if (row.action === 'whitelist_skipped') {
-    return `未通过验证不自动生效（${(d.words ?? []).join('、')}）：${Object.values(d.reasons ?? {}).join('；')}`
+    return `未通过验证不自动生效（${asList(d.words).join('、')}）：${Object.values((d.reasons as Record<string, unknown>) ?? {}).map(asText).join('；')}`
   }
   if (row.action === 'rule_suggest') {
-    return `建议停用规则：${(d.rules ?? []).join('、')}（阈值 ${(d.threshold_rate ?? 0) * 100}%）`
+    return `建议停用规则：${asList(d.rules).join('、')}（阈值 ${asNum(d.threshold_rate) * 100}%）`
   }
   if (row.action === 'suggestion_confirm') {
-    return `已停用规则 ${d.rule_id}${d.disabled_pack ? `（规则包：${d.disabled_pack}）` : '（内置规则，需手动调整 YAML）'}`
+    return `已停用规则 ${asText(d.rule_id)}（${asText(d.pack_type ?? d.checker)}，${d.scope === 'global' ? '全员生效' : '仅自己'}）`
   }
   if (row.action === 'suggestion_reject') {
-    return `拒绝停用规则 ${d.rule_id}`
+    return `拒绝停用规则 ${asText(d.rule_id)}`
   }
   if (row.action === 'tuning_run') {
-    return `触发方式：${d.trigger === 'daily' ? '每日定时' : '手动'}；新增白名单词 ${d.whitelist_added} 个；${(d.whitelist_pending ?? []).length ? `拦截 ${(d.whitelist_pending ?? []).length} 个候选词（未通过验证）；` : ''}建议停用 ${(d.suggested_rules ?? []).length} 条规则`
+    const pending = asList(d.whitelist_pending).length
+    return `触发方式：${d.trigger === 'daily' ? '每日定时' : '手动'}；新增白名单词 ${asNum(d.whitelist_added)} 个；${pending ? `拦截 ${pending} 个候选词（未通过验证）；` : ''}建议停用 ${asList(d.suggested_rules).length} 条规则`
   }
   return JSON.stringify(d)
 }
@@ -273,7 +286,7 @@ async function decide(row: SuggestionItem, action: 'confirm' | 'reject') {
     const res = await decideSuggestion(row.id, action)
     ElMessage.success(
       action === 'confirm'
-        ? (res.disabled_pack ? `已停用规则包「${res.disabled_pack}」` : '已记录，内置规则请手动调整规则包')
+        ? `已停用规则「${res.disabled_rule?.rule_id ?? row.rule_id}」，后续审查不再执行它`
         : '已拒绝该建议'
     )
     await reloadAll()

@@ -6,6 +6,7 @@
 - 全部动作写 learning_logs 留痕。
 """
 
+import functools
 import json
 import logging
 import re
@@ -37,10 +38,33 @@ log = logging.getLogger("learning")
 # 自动白名单文件（与内置 typo_whitelist.txt 并存，可一键回滚删除）
 RULES_DIR = Path(__file__).parent.parent / "checkers" / "rules"
 AUTO_WHITELIST = RULES_DIR / "typo_whitelist_auto.txt"
+# 内置错别字混淆集：这里带明确正确写法的词属于「真错别字」，禁止自动加白
+CONFUSION_FILE = RULES_DIR / "typo_confusion.txt"
 
 # W7-5 golden 集版本化：manifest 记录版本与 doc 清单，调优前对候选词做 golden 验证
 GOLDEN_MANIFEST = Path("/app/corpus/acceptance_golden/golden_manifest.json")
 GOLDEN_RESULTS = Path("/app/corpus/acceptance_golden/l1_results.json")
+
+
+@functools.lru_cache(maxsize=1)
+def _confusion_corrections() -> dict[str, str]:
+    """内置混淆集：错误写法 → 正确写法。
+
+    这里带明确正确写法的词是「真错别字」，用户把它当误报忽略，也只能说明
+    这一处上下文特殊，不能推导出「该词永远不是错别字」。因此这类词禁止
+    自动加白，必须人工确认（见 _verify_candidate_words）。
+    """
+    if not CONFUSION_FILE.exists():
+        return {}
+    mapping: dict[str, str] = {}
+    for line in CONFUSION_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) >= 2:
+            mapping[parts[0]] = parts[1]
+    return mapping
 
 
 def _read_auto_words() -> set[str]:
@@ -111,7 +135,9 @@ def _golden_doc_ids() -> tuple[set[str], str]:
 def _verify_candidate_words(db, words: set[str]) -> tuple[set[str], dict[str, str]]:
     """W7-5 白名单先验证再生效。
 
-    候选词两级验证，任一失败则**不自动生效**（挂起人工，写日志）：
+    候选词三级验证，任一失败则**不自动生效**（挂起人工，写日志）：
+    0) 混淆集验证：该词在 typo_confusion.txt 里有明确正确写法（如 签定→签订），
+       说明它本身就是真错别字，用户单次「误报」反馈不足以推翻词典 → 不自动加入；
     1) 信号验证：DB 中同词 findings 存在 confirmed / fixed / open 状态
        （说明系统或用户认为该词确有问题）→ 不自动加入；
     2) golden 验证：该词出现在 golden 真实合同集的 typo findings 中
@@ -122,6 +148,7 @@ def _verify_candidate_words(db, words: set[str]) -> tuple[set[str], dict[str, st
         return set(), {}
     safe, pending = set(), {}
     golden_ids, golden_ver = _golden_doc_ids()
+    corrections = _confusion_corrections()
 
     # 一次查出所有同词 findings（含状态与文档归属）
     rows = db.execute(
@@ -132,6 +159,12 @@ def _verify_candidate_words(db, words: set[str]) -> tuple[set[str], dict[str, st
     ).all()
     for w in sorted(words):
         reasons = []
+        # 0) 混淆集验证：词典里写着正确写法的词，绝不自动加白
+        if w in corrections:
+            reasons.append(
+                f"该词在错别字混淆集中有明确正确写法（{w}→{corrections[w]}），"
+                "自动加白会掩盖真错别字，需人工确认"
+            )
         # 1) 信号验证
         for _, status, fb_reason, _doc_id, msg in rows:
             if f"「{w}」" in (msg or ""):

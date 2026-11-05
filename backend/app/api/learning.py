@@ -138,26 +138,33 @@ def list_suggestions(
     ]}
 
 
-def _disable_matched_pack(db: Session, suggestion: LearningSuggestion) -> str | None:
-    """按 checker 找到启用的自定义规则包，若其 YAML 含该 rule_id 则停用。
-    返回停用的包名；内置规则（无自定义包匹配）返回 None。"""
-    pack_type = CHECKER_PACK_TYPE.get(suggestion.checker)
-    if not pack_type:
-        return None
-    from app.checkers.loader import invalidate_pack_caches
-    from app.models.rules import RulePack
+def _disable_rule(db: Session, suggestion: LearningSuggestion, admin: User) -> dict:
+    """把「确认停用」落到规则级覆盖表——内置规则也能真停用。
 
-    packs = (
-        db.query(RulePack)
-        .filter(RulePack.pack_type == pack_type, RulePack.enabled.is_(True))
-        .all()
+    以前这里是「找包含该 rule_id 的自定义包并整包停用」：内置规则根本没有包可停，
+    于是只写了一条日志，界面却显示"已停用"；即使命中自定义包，也会把整个包里
+    其它正常规则一起关掉，代价过大。现在按 (pack_type, rule_id) 精确停用。
+    """
+    pack_type = CHECKER_PACK_TYPE.get(suggestion.checker) or suggestion.checker
+    from app.checkers.loader import invalidate_pack_caches
+    from app.services.rule_overrides import disable_rule
+
+    row = disable_rule(
+        db,
+        pack_type=pack_type,
+        rule_id=suggestion.rule_id,
+        user_id=None,  # 管理员决策 = 全局生效
+        reason=f"学习闭环确认停用（误报率 {suggestion.false_rate:.0%}）"
+        if suggestion.false_rate is not None else "学习闭环确认停用",
+        created_by=admin.id,
     )
-    for pack in packs:
-        if suggestion.rule_id in (pack.yaml_content or ""):
-            pack.enabled = False
-            invalidate_pack_caches()
-            return pack.name
-    return None
+    db.flush()
+    return {
+        "pack_type": pack_type,
+        "rule_id": row.rule_id,
+        "scope": "global",
+        "disabled_rule_id": str(row.id),
+    }
 
 
 @router.post("/suggestions/{suggestion_id}/decision")
@@ -175,7 +182,10 @@ def decide_suggestion(
 
     now = datetime.now(timezone.utc)
     if body.action == "confirm":
-        disabled_name = _disable_matched_pack(db, s)
+        disabled = _disable_rule(db, s, admin)
+        from app.checkers.loader import invalidate_pack_caches
+
+        invalidate_pack_caches()
         s.status = SUGGESTION_CONFIRMED
         s.resolved_at = now
         db.add(LearningLog(
@@ -184,9 +194,7 @@ def decide_suggestion(
                 "suggestion_id": s.id,
                 "checker": s.checker,
                 "rule_id": s.rule_id,
-                "disabled_pack": disabled_name,
-                "note": "内置规则无自定义包可停用，请手动调整规则包 YAML"
-                        if disabled_name is None else None,
+                **disabled,
                 "by": str(admin.id),
             },
         ))
@@ -194,9 +202,11 @@ def decide_suggestion(
         from app.services.audit_service import write_audit
 
         write_audit(db, action="rule_decision", user_id=admin.id, username=admin.username,
-                    target=s.rule_id, detail={"decision": "confirm", "checker": s.checker})
+                    target=s.rule_id,
+                    detail={"decision": "confirm", "checker": s.checker,
+                            "pack_type": disabled["pack_type"], "scope": "global"})
         db.commit()
-        return {"ok": True, "disabled_pack": disabled_name}
+        return {"ok": True, "disabled_rule": disabled}
     if body.action == "reject":
         s.status = SUGGESTION_REJECTED
         s.resolved_at = now

@@ -8,6 +8,7 @@ from app.models.document import (
     Artifact,
     CheckFinding,
     Document,
+    DocumentRelease,
     DocumentTask,
     IntentRoute,
     LearningLog,
@@ -17,7 +18,7 @@ from app.models.document import (
 )
 from app.models.embed import DocumentChunk
 from app.models.llm import LLMCallLog
-from app.models.rules import RulePack
+from app.models.rules import DisabledRule, RulePack
 from app.models.user import (
     AuthSession,
     LoginAttempt,
@@ -44,9 +45,11 @@ __all__ = [
     "Artifact",
     "IntentRoute",
     "CheckFinding",
+    "DocumentRelease",
     "LearningLog",
     "LearningSuggestion",
     "RulePack",
+    "DisabledRule",
     "DocumentChunk",
     "ChatSession",
     "ChatMessage",

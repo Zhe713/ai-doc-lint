@@ -23,14 +23,23 @@ log = logging.getLogger("review")
 
 
 class FindingCollector:
-    """检查器统一收集器：构造 finding 行并计入本任务，最后一次性 flush。"""
+    """检查器统一收集器：构造 finding 行并计入本任务，最后一次性 flush。
 
-    def __init__(self, db: Session, task: DocumentTask):
+    `disabled` 是「单条规则停用」的 (pack_type, rule_id) 集合。放在收集器这一层
+    做兜底过滤，是为了覆盖所有检查器——包括 format/typo 这类不走规则包列表、
+    无法在 loader 层过滤的规则。被抑制的条目记进 `suppressed`，让「规则被停用」
+    在统计里看得见，而不是悄悄消失。
+    """
+
+    def __init__(self, db: Session, task: DocumentTask,
+                 disabled: set[tuple[str, str]] | None = None):
         self.db = db
         self.task = task
         self.items: list[CheckFinding] = []
         self.skipped: list[str] = []
         self.warnings: list[str] = []
+        self.disabled = disabled or set()
+        self.suppressed: list[str] = []
 
     def add_warning(self, message: str) -> None:
         """检查器自身的运行告警（降级/能力受限等），区别于文档问题 finding。"""
@@ -52,7 +61,15 @@ class FindingCollector:
         location: dict | None = None,
         suggestion: str | None = None,
         related_document_id=None,
-    ) -> CheckFinding:
+        source: str = "rule",
+        llm_reason: str | None = None,
+        llm_model: str | None = None,
+    ) -> CheckFinding | None:
+        pack_type = "cross" if checker == "cross_doc" else checker
+        if (pack_type, rule_id) in self.disabled:
+            if rule_id not in self.suppressed:
+                self.suppressed.append(rule_id)
+            return None
         finding = CheckFinding(
             document_id=self.task.document_id,
             task_id=self.task.id,
@@ -64,6 +81,9 @@ class FindingCollector:
             message=message,
             suggestion=suggestion,
             related_document_id=related_document_id,
+            source=source,
+            llm_reason=llm_reason,
+            llm_model=llm_model,
         )
         self.db.add(finding)
         self.items.append(finding)
@@ -77,22 +97,40 @@ def summarize(
     findings: list[CheckFinding],
     skipped: list[str] | None = None,
     warnings: list[str] | None = None,
+    suppressed: list[str] | None = None,
 ) -> dict:
     by_severity = {"error": 0, "warning": 0, "info": 0}
     by_checker: dict[str, int] = {}
+    by_source: dict[str, int] = {"rule": 0, "hybrid": 0, "llm": 0}
     for f in findings:
         by_severity[f.severity] = by_severity.get(f.severity, 0) + 1
         by_checker[f.checker] = by_checker.get(f.checker, 0) + 1
+        src = getattr(f, "source", None) or "rule"
+        by_source[src] = by_source.get(src, 0) + 1
     out = {
         "total": len(findings),
         "by_severity": by_severity,
         "by_checker": by_checker,
+        "by_source": by_source,
     }
     if skipped:
         out["skipped"] = list(skipped)
     if warnings:
         out["checker_warnings"] = list(warnings)
+    if suppressed:
+        out["suppressed"] = list(suppressed)
     return out
+
+
+def _disabled_rules(db: Session, user_id) -> set[tuple[str, str]]:
+    """该用户生效的规则停用集合；查询失败时返回空集（不能让审查整体失败）。"""
+    try:
+        from app.services.rule_overrides import disabled_rule_set
+
+        return disabled_rule_set(db, user_id)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("读取规则停用覆盖失败，按全部启用处理: %s", type(exc).__name__)
+        return set()
 
 
 def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> None:
@@ -104,7 +142,7 @@ def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> 
     )
     db.commit()
 
-    collector = FindingCollector(db, task)
+    collector = FindingCollector(db, task, _disabled_rules(db, task.user_id))
 
     # 字段抽取：规则层始终执行（0 token）；仅当请求交叉比对时允许 LLM 补抽
     from app.extract.field_extractor import FieldExtractor
@@ -136,7 +174,8 @@ def run_review_pipeline(db: Session, task: DocumentTask, document: Document) -> 
     db.commit()
 
     stats = {
-        **summarize(collector.items, collector.skipped, collector.warnings),
+        **summarize(collector.items, collector.skipped, collector.warnings,
+                    collector.suppressed),
         "checks": requested,
     }
     task_state.change_status(
