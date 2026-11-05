@@ -19,7 +19,7 @@ jobs:
       - name: 准备 .env（CI 使用示例配置）
         run: cp .env.example .env
       - name: 登录 GHCR（拉取自维护的 MinIO 镜像）
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u Zhe713 --password-stdin
       - name: 预拉取基础镜像（registry 匿名限流时退避重试）
         run: |
           for img in pgvector/pgvector:pg18 valkey/valkey:9.0 ghcr.io/zhe713/ai-doc-lint-minio:latest; do
