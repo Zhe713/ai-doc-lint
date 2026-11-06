@@ -4,6 +4,67 @@
 
 ## [Unreleased] - 2026-11
 
+### 新增（GitHub 门面与体验修缮）
+
+- **品牌 logo 上架**：新增文档+对勾主题的 SVG logo，应用于侧边栏、登录页与浏览器 favicon。
+- **报告页支持短 ID**：8 位以上前缀短链自动展开为完整 UUID 并替换地址，分享/手输短 ID
+  不再显示空报告。
+- **README 全面重写**：面向使用者重写（这是什么/为什么是它/快速开始/架构/技术栈），
+  取代原先的开发过程流水账；全部界面截图更新为当前版本。
+- **对外文档重写**：CONTRIBUTING（含前后端改动验证步骤）、SECURITY（安全措施清单）、
+  行为准则（完整版 Contributor Covenant 2.1）、Issue/PR 模板。
+
+### 修复（CI 与工程）
+
+- **CI 修复全绿**：compose 服务名引用错误（`api` → `backend-api`，此前启动 5 秒即失败）；
+  基础镜像预拉取加 5 次退避重试，规避 registry 匿名限流；MinIO 官方镜像 2025 起要求登录，
+  改用项目自维护的 GHCR 镜像（`ghcr.io/zhe713/ai-doc-lint-minio`）+ `GHCR_TOKEN` secret 登录拉取；
+  golden 语料缺失时跳过 PDF 高亮批注用例。
+- **覆盖率门禁达标**：新增 `test_checkers_units.py` 12 用例（格式/错别字检查器纯逻辑、
+  规则包解释器、L3 只读工具），覆盖率 67% → **73%**，通过 CI 的 `--cov-fail-under=70`。
+- **chat 多轮上下文记忆测试**：新增 `test_chat_memory.py` 7 用例，锁住消息持久化、
+  L3 历史窗口、本轮消息不重复拼接、跨轮槽位继承与会话隔离。
+- 比对组名乱码（历史数据编码丢失）修正；`.env.example` 的 `MINIO_IMAGE` 指向 GHCR。
+
+### 新增（第三轮全面排查）
+
+- **内置规则包「看规则」修复并支持单条停用**：`GET /rules/packs/builtin/{file}/explain`
+  此前把 JSON 字符串直接传给解释器导致**所有内置包的解释面板一直为空**（真死功能）；
+  现已修复，且解释条目新增 `rule_id`，规则页每条规则可一键停用/恢复。
+- **「复制内置包为自定义」入口**：内置规则包列表新增复制按钮，一键把内置包内容转成
+  自己的自定义包再改，不再需要从零手写。
+- **chat 助手接入语义检索兜底**：`search_in_document` 在精确匹配、条号定位、
+  空白归一化都未命中时，回退到 pgvector + BM25 混合检索（bge 向量 + reranker），
+  「换个说法问」也能找到原文位置。
+- **chat 历史体验修缮**：修复 L3 把当前用户消息重复拼两次的问题；`streamChat` 增加
+  HTTP 状态检查与错误处理；意图层级徽标映射修正（`l1_rule/l2_context/l3_agent`）。
+
+### 安全（第三轮全面排查）
+
+- **越权读取修复（IDOR）**：`diff.py` 的 `_get_plaintext` 原先不校验文档归属，
+  任意登录用户可读他人文档全文并做放行；现已校验所有权。
+- **规则包越权修复**：非管理员此前可列出并查看他人私有规则包的完整内容；
+  现在列表/详情只返回自己的包（管理员可见全部），且包所有者可管理自己的包。
+- **管理员重置密码后吊销全部 refresh token**：防止旧会话在改密后继续有效。
+- **XSS 修复**：搜索页 `highlight()` 现先做 HTML 转义再高亮，文档原文中的
+  `<script>` 等内容不再被当 HTML 渲染。
+- **新增安全回归测试** `tests/test_security.py`：锁住 IDOR、规则包越权、
+  令牌吊销三处修复。
+
+### 修复（第三轮全面排查）
+
+- **Celery 重试真正生效**：此前任务首次抛错后状态停在 RUNNING，重试进入时被
+  「状态守卫」直接跳过，导致重试机制形同虚设；parse/review/annotate/embed/
+  cross_compare 五个任务在重试前先回退状态，重试耗尽才落 FAILED。
+- **reaper 按任务类型重投**：此前把卡死的 review/annotate/embed 等任务一律
+  丢回 parse 队列；现按 `task_type` 路由到各自队列。
+- **条款严重度缺省**：条款包未写 `severity` 时不再 KeyError，回退到 warning。
+- **告警阈值配置对齐**：`alerting.py` 引用的 `hybrid_vector_topk` 等配置项此前
+  与 config.py 字段名漂移（启动即 AttributeError），已对齐。
+- **前端交互修缮**：6 处 `ElMessageBox.confirm` 点取消不再抛未处理异常；
+  报告页「审查失败」警示补齐；打开助手失败有提示；删除比对组/放行/撤销放行/
+  取消任务/删除规则包/退出登录等确认框均有取消兜底。
+
 ### 新增（第二轮全面排查）
 
 - **内置规则包「看规则」修复并支持单条停用**：`GET /rules/packs/builtin/{file}/explain`
@@ -146,7 +207,7 @@
 
 ### 质量数据（实测）
 
-- 后端测试 164 用例全绿，CI 双 job（后端 pytest + 前端 vue-tsc 构建）
+- 后端测试 179 用例全绿（覆盖率 73%），CI 双 job（后端 pytest + 前端 vue-tsc 构建）+ CodeQL 安全扫描
 - golden 基准集：40 份网络公开真实合同（CUAD / 政府采购 / 示范文本库），误报率 391 → 7
 - 混合检索相关度 99%（golden 检索回归）
 - 零成本演示：本地一键启动 / Cloudflare 免费隧道外网演示（`scripts-dev/demo_start.ps1`）

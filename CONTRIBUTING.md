@@ -34,12 +34,15 @@ docker restart ai-doc-lint-backend-api-1 ai-doc-lint-celery-worker-1
 
 ### 改前端后如何验证
 
-`web-frontend` 是 `COPY dist` 进镜像，**必须重建镜像**才生效：
+`web-frontend` 镜像是多阶段构建（**镜像内部自己执行 `npm run build`**，本地 `dist` 不进镜像），
+改完源码重建镜像即可，无需先本地构建：
 
 ```bash
-cd frontend && npx vite build
-cd .. && docker compose build web-frontend && docker compose up -d web-frontend
+docker compose build web-frontend && docker compose up -d web-frontend
 ```
+
+> 提示：若 BuildKit 缓存导致改动未生效（罕见但出现过），用 `docker compose build --no-cache web-frontend` 强制重建。
+> 本地 `npx vue-tsc --build && npx vite build` 仅用于快速验证，不参与部署。
 
 ## 运行测试
 

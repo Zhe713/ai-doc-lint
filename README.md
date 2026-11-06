@@ -161,9 +161,13 @@ ai-doc-lint/
 ├── backend/                # FastAPI + Celery + 校验器 + 学习闭环
 │   └── tests/              # pytest 测试套件（179 用例）
 ├── frontend/               # Vue3 + TS + Vite + Element Plus
-├── docs/                   # 文档与界面截图
+├── docs/                   # 文档（含审计报告、演示脚本）与界面截图
 ├── corpus/                 # 公开合同语料（正文不入库，manifest 与真值入库）
-└── scripts-dev/            # 本地开发 / 测试 / 回归脚本
+├── scripts-dev/            # 本地开发 / 测试 / 回归脚本
+├── ux-review/              # 新用户视角体验测试与业务价值指标报告（验收快照）
+├── acceptance-delivery/    # 验收交付包：40 份公开合同 + 全量校验产物
+├── acceptance-report/      # 验收报告（HTML）
+└── demo-pack/              # 演示交付包（HTML 自检页）
 ```
 
 ## 参与贡献
